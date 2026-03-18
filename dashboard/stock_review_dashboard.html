@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票AI复评看板 - 2026-03-18</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 0;
+            border-bottom: 2px solid rgba(255,255,255,0.1);
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: rgba(255,255,255,0.6);
+            font-size: 1.1em;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 25px;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: rgba(255,255,255,0.6);
+            font-size: 0.95em;
+        }
+
+        .pass { color: #00ff88; }
+        .fail { color: #ff4757; }
+        .pending { color: #ffa502; }
+
+        .section {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .section-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title .icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+        }
+
+        .icon.pass { background: rgba(0,255,136,0.2); }
+        .icon.fail { background: rgba(255,71,87,0.2); }
+
+        .stock-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 15px;
+        }
+
+        .stock-card {
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            padding: 20px;
+            border-left: 4px solid;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .stock-card:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateX(5px);
+        }
+
+        .stock-card.pass { border-left-color: #00ff88; }
+        .stock-card.fail { border-left-color: #ff4757; }
+
+        .stock-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .stock-code {
+            font-size: 1.4em;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .stock-score {
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+
+        .stock-meta {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+            color: rgba(255,255,255,0.7);
+        }
+
+        .tag {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75em;
+            font-weight: 500;
+        }
+
+        .tag.trend-start { background: rgba(0,212,255,0.3); color: #00d4ff; }
+        .tag.distribution { background: rgba(255,71,87,0.3); color: #ff6b81; }
+        .tag.rebound { background: rgba(255,165,2,0.3); color: #ffa502; }
+
+        .stock-comment {
+            color: rgba(255,255,255,0.8);
+            font-size: 0.9em;
+            line-height: 1.5;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .chart-preview {
+            width: 100%;
+            height: 150px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255,255,255,0.4);
+            font-size: 0.85em;
+        }
+
+        .chart-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            border-radius: 4px;
+            transition: width 0.5s;
+        }
+
+        .filter-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .filter-tab {
+            padding: 10px 20px;
+            border-radius: 25px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.95em;
+        }
+
+        .filter-tab:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .filter-tab.active {
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+        }
+
+        .detail-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .detail-modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border-radius: 20px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 30px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .close-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #fff;
+            font-size: 1.5em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .close-btn:hover {
+            background: rgba(255,71,87,0.5);
+        }
+
+        .score-breakdown {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .score-item {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .score-item-label {
+            color: rgba(255,255,255,0.6);
+            font-size: 0.85em;
+            margin-bottom: 5px;
+        }
+
+        .score-item-value {
+            font-size: 1.3em;
+            font-weight: bold;
+        }
+
+        .reasoning-section {
+            margin-top: 20px;
+        }
+
+        .reasoning-title {
+            font-size: 1.1em;
+            color: #00d4ff;
+            margin-bottom: 10px;
+        }
+
+        .reasoning-text {
+            color: rgba(255,255,255,0.8);
+            line-height: 1.6;
+            font-size: 0.95em;
+        }
+
+        @media (max-width: 768px) {
+            .stock-grid {
+                grid-template-columns: 1fr;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📈 股票AI复评看板</h1>
+            <p class="subtitle">选股日期：2026-03-18 | ZenMux AI分析 | 实时评分</p>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">174</div>
+                <div class="stat-label">候选股票总数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value pending">27</div>
+                <div class="stat-label">已完成复评</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 15.5%"></div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value pass">3</div>
+                <div class="stat-label">PASS推荐</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value fail">24</div>
+                <div class="stat-label">FAIL不推荐</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <div class="icon pass">✓</div>
+                <span>推荐股票 (PASS) - 3只</span>
+            </div>
+            <div class="stock-grid" id="pass-stocks">
+                <!-- PASS stocks will be inserted here -->
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <div class="icon fail">✗</div>
+                <span>不推荐股票 (FAIL) - 24只</span>
+            </div>
+            <div class="filter-tabs">
+                <button class="filter-tab active" onclick="filterStocks('all')">全部</button>
+                <button class="filter-tab" onclick="filterStocks('distribution')">派发风险</button>
+                <button class="filter-tab" onclick="filterStocks('rebound')">反弹</button>
+            </div>
+            <div class="stock-grid" id="fail-stocks">
+                <!-- FAIL stocks will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <div class="detail-modal" id="detail-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">股票详情</h2>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modal-body">
+                <!-- Detail content will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Stock data from the review results
+        const stockData = [
+            {
+                code: "600089",
+                score: 4.1,
+                verdict: "PASS",
+                signal_type: "trend_start",
+                comment: "该股处于周线级别主升趋势中，前期放量突破平台（一月异动）特征明显，当前高位缩量回调结构健康，后市仍有突破前高、延续波段的潜力。",
+                trend_structure: 4,
+                price_position: 3,
+                volume_behavior: 4,
+                previous_abnormal_move: 5,
+                trend_reasoning: "均线系统呈现标准的多头排列，短期与长期均线均保持向上倾斜。价格沿均线上行，形成清晰的上升趋势通道，结构健康。",
+                position_reasoning: "股价从15元附近启动，已上涨超过100%，目前价格处于近期高点30元附近的回调阶段。虽然不是底部区域，但也不是极端高位，属于上升趋势中的中高位置。",
+                volume_reasoning: "上涨阶段（尤其是一月）有显著的成交量放大，表明买盘积极。最近从高点回调时，成交量明显萎缩，未出现放量下跌的恐慌或出货迹象，量价关系非常健康。",
+                abnormal_move_reasoning: "一月中旬出现了一次非常典型的异动，伴随着远超平均水平的巨量，连续阳线突破了长达一个多月的整理平台。这是明确的主力建仓或启动信号，且后续涨幅仍在合理范围内（<50%）。",
+                signal_reasoning: "股票处于确立的上升趋势中，近期回调呈现缩量，是典型的强势整理。结合前期明确的主力异动信号，当前位置更像是新一轮上涨前的蓄势，而非反弹或出货。因此判定为趋势启动信号。"
+            },
+            {
+                code: "600893",
+                score: 4.1,
+                verdict: "PASS",
+                signal_type: "trend_start",
+                comment: "该股处于周线级别主升浪中，前期放量突破平台后持续上行，当前缩量回调至均线附近，显示抛压减轻，仍有挑战前高的潜力，但需注意已积累一定涨幅。",
+                trend_structure: 4,
+                price_position: 3,
+                volume_behavior: 4,
+                previous_abnormal_move: 5,
+                trend_reasoning: "均线系统自2026年1月起进入清晰的多头排列，短期均线与长期均线同步向上倾斜，价格沿短期均线震荡上行，形成了一段健康的上升趋势。目前价格回踩短期均线，趋势结构保持完好。",
+                position_reasoning: "股价从约36元的底部区域启动，最高上涨至约63元，涨幅已超过70%。当前价格约54元，处于从高点回落后的整理阶段，位置上已不属于低风险的启动区，而是接近前期高点压力区，性价比中等。",
+                volume_reasoning: "最近一轮从50元附近上涨至63元高点的过程中，成交量温和放大，量价配合良好。从高点回落调整至今，成交量呈现明显的阶梯式萎缩，尤其最近几个交易日缩至地量水平，表明抛售压力显著减轻，是健康的调整形态。",
+                abnormal_move_reasoning: "在2026年1月初，股价以连续放量阳线的方式突破了长达两个多月的横盘整理平台（约36-40元区间），成交量远超前期平均水平，这是非常典型的主力建仓启动信号，且该启动波段的涨幅可控，为后续行情打下基础。",
+                signal_reasoning: "该股票处于一个已经确立的上升趋势中。近期经历了一波上涨后，目前正进行缩量回调，这是上升趋势中的健康调整，而非趋势反转或简单的超跌反弹。抛压减轻后，大概率会延续原有趋势，开启新一轮上涨。因此，信号类型判断为趋势启动（下一波段）。"
+            },
+            {
+                code: "601117",
+                score: 4.1,
+                verdict: "PASS",
+                signal_type: "trend_start",
+                comment: "周线趋势向上，前期有明显放量突破的建仓迹象，当前上涨放量、回调初步缩量，在回踩短期均线后，仍有潜力挑战前高。",
+                trend_structure: 4,
+                price_position: 3,
+                volume_behavior: 4,
+                previous_abnormal_move: 5,
+                trend_reasoning: "均线系统已形成多头排列，短期均线和长期均线均以健康的斜率向上运行。价格在上涨过程中沿短期均线震荡上行，整体趋势结构健康、清晰。",
+                position_reasoning: "股价已经脱离了底部7.5元附近的长期盘整平台，并突破了9.2元附近的前期高点。目前价格从10元上方的近期高点回落，处于一个上升通道的中高位置，正在接近前高压力区，但并非绝对高位。",
+                volume_reasoning: "近期的上涨波段（从8.5元至10元以上）伴随着成交量的显著放大。从高点回落的过程中，第一根阴线成交量较大，显示有一定抛压，但随后的调整K线成交量明显萎缩，整体看回调是缩量的，量价关系基本健康。",
+                abnormal_move_reasoning: "在1月中旬，股价以一根放量大阳线突破了长达数月的盘整平台，这是非常明确的建仓启动信号。随后的几轮上涨也均有异常放量阳线支持，且整体涨幅（从7.5元到10.3元约37%）尚在合理范围，不属于主升浪末期。",
+                signal_reasoning: "股票处于明确的上升趋势中，近期创出新高后出现正常的技术性回调。回调在短期均线附近有企稳迹象，且成交量萎缩，表明抛压减轻。这符合上升趋势中的回调买入特征，是潜在的下一波主升行情的启动点，而非简单的反弹或出货。"
+            },
+            {
+                code: "000792",
+                score: 2.3,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "该股虽然处于周线级别的上升通道，但从底部启动后涨幅已近翻倍，近期在高位区域反复出现放量滞涨和带量回调，显示抛压沉重，有构筑顶部的风险，追高性价比低。",
+                trend_structure: 4,
+                price_position: 3,
+                volume_behavior: 2,
+                previous_abnormal_move: 1
+            },
+            {
+                code: "001337",
+                score: 1.9,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "主升浪行情或已结束，高位放量滞涨后进入高风险盘整区，量价结构显示上攻动能衰竭，追高风险极大。",
+                trend_structure: 4,
+                price_position: 1,
+                volume_behavior: 2,
+                previous_abnormal_move: 1
+            },
+            {
+                code: "002008",
+                score: 2.2,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "周线级别的上升趋势依然健康，但日线经历主升浪加速后处于绝对高位，近期高位放量回调，呈现出明显的派发风险，追高性价比极低。",
+                trend_structure: 4,
+                price_position: 1,
+                volume_behavior: 2,
+                previous_abnormal_move: 2
+            },
+            {
+                code: "002378",
+                score: 1.6,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "尽管周线级别趋势向上，但日线经历主升浪后，高位放出巨量滞涨，呈现清晰的出货风险，追高性价比极低。",
+                trend_structure: 4,
+                price_position: 1,
+                volume_behavior: 1,
+                previous_abnormal_move: 1
+            },
+            {
+                code: "002428",
+                score: 2.4,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "周线级别的上升趋势仍在，但日线已从底部大幅上涨，目前处于高位回调阶段。近期高点附近放量下跌，显示出明显的派发迹象，追高风险较大，性价比不高。",
+                trend_structure: 4,
+                price_position: 2,
+                volume_behavior: 2,
+                previous_abnormal_move: 2
+            },
+            {
+                code: "002471",
+                score: 2.2,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "该股经历了一轮涨幅超过100%的主升浪，前期放量突破的建仓痕迹明显。目前处于高位震荡整理，短期均线走平，上涨动能减弱，量价配合一般，追高风险较大，需警惕高位派发可能。",
+                trend_structure: 3,
+                price_position: 2,
+                volume_behavior: 3,
+                previous_abnormal_move: 1
+            },
+            {
+                code: "002491",
+                score: 1.9,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "虽然日线趋势仍处于多头结构，但股价翻倍后在高位放量回调，显示出明显的派发风险，前期主升浪或已结束。",
+                trend_structure: 4,
+                price_position: 1,
+                volume_behavior: 2,
+                previous_abnormal_move: 1
+            },
+            {
+                code: "002716",
+                score: 1.2,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "主升浪行情已结束，顶部放天量下跌形成典型派发结构，目前处于高位回调中，上方抛压沉重，存在较大的出货风险。",
+                trend_structure: 1,
+                price_position: 1,
+                volume_behavior: 1,
+                previous_abnormal_move: 1
+            },
+            {
+                code: "600118",
+                score: 1.2,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "周线级别主升浪结束后，日线顶部出现天量出货迹象，目前均线空头排列，反弹无力，下跌趋势仍在延续，存在显著的出货风险。",
+                trend_structure: 1,
+                price_position: 2,
+                volume_behavior: 1,
+                previous_abnormal_move: 1
+            },
+            {
+                code: "600176",
+                score: 2.7,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "尽管均线仍呈多头排列，但股价在经历近翻倍的主升浪后于高位回调，量价配合不理想，显示出一定的抛压和出货风险，当前追高性价比很低。",
+                trend_structure: 4,
+                price_position: 2,
+                volume_behavior: 3,
+                previous_abnormal_move: 2
+            },
+            {
+                code: "600259",
+                score: 1.6,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "尽管长期趋势向上，但股价翻倍后在高位放出天量阴线，呈现出典型的出货特征，主升浪或已结束，当前追高风险极大。",
+                trend_structure: 4,
+                price_position: 1,
+                volume_behavior: 1,
+                previous_abnormal_move: 1
+            },
+            {
+                code: "600406",
+                score: 3.0,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "虽然周线级别趋势向上，且前期有过明显的放量突破建仓迹象，但股价经历大幅上涨后，在高位回调时并未缩量，反而有放量下跌的迹象，显示出货风险正在增加，当前位置追高性价比低。",
+                trend_structure: 4,
+                price_position: 2,
+                volume_behavior: 2,
+                previous_abnormal_move: 4
+            },
+            {
+                code: "600410",
+                score: 2.7,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "日线趋势虽强劲，但前期涨幅已超一倍，目前高位回调虽有缩量，但追高风险显著，警惕主力派发可能。",
+                trend_structure: 4,
+                price_position: 2,
+                volume_behavior: 4,
+                previous_abnormal_move: 1
+            },
+            {
+                code: "600482",
+                score: 1.7,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "该股经历翻倍主升浪后，目前在高位放量回调，已跌破短期均线，显示出明显的派发风险，上涨趋势动能衰竭。",
+                trend_structure: 3,
+                price_position: 1,
+                volume_behavior: 2,
+                previous_abnormal_move: 1
+            },
+            {
+                code: "600487",
+                score: 1.9,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "周线级别虽然处于上升趋势，但日线经历翻倍主升浪后，在高位出现放量回调，跌破短期均线，有明显的派发迹象，追高风险极大。",
+                trend_structure: 4,
+                price_position: 1,
+                volume_behavior: 2,
+                previous_abnormal_move: 1
+            },
+            {
+                code: "600522",
+                score: 2.1,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "虽然周线趋势向上，但股价翻倍后在高位出现放量下跌，跌破短期均线，有构筑顶部的出货风险，当前追高性价比极低。",
+                trend_structure: 4,
+                price_position: 1,
+                volume_behavior: 2,
+                previous_abnormal_move: 1
+            },
+            {
+                code: "600549",
+                score: 1.2,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "周线级别主升浪结束后，日线在高位出现放量下跌的派发迹象，短期均线拐头向下，追高风险极大，当前不具备波段爆发潜力。",
+                trend_structure: 2,
+                price_position: 1,
+                volume_behavior: 1,
+                previous_abnormal_move: 1
+            },
+            {
+                code: "600550",
+                score: 2.7,
+                verdict: "FAIL",
+                signal_type: "rebound",
+                comment: "周线级别趋势向上，当前日线回调呈现健康的缩量结构，但股价自底部异动放量区以来涨幅巨大，已处高位，追高风险显著，波段爆发的空间和性价比均已降低。",
+                trend_structure: 4,
+                price_position: 2,
+                volume_behavior: 4,
+                previous_abnormal_move: 1
+            },
+            {
+                code: "600759",
+                score: 1.6,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "尽管日线趋势仍处多头，但股价经历主升浪大幅上涨后，在历史高位放出天量并伴随高位大阴线，呈现出典型的出货迹象，当前追高风险极大。",
+                trend_structure: 4,
+                price_position: 1,
+                volume_behavior: 1,
+                previous_abnormal_move: 1
+            },
+            {
+                code: "600875",
+                score: 2.1,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "尽管周线趋势维持向上，但前期主升浪涨幅巨大，近期高位回调放出明显卖盘量能，显示有资金派发迹象，当前追高风险极大。",
+                trend_structure: 4,
+                price_position: 1,
+                volume_behavior: 2,
+                previous_abnormal_move: 2
+            },
+            {
+                code: "601179",
+                score: 2.1,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "虽然周线级别趋势向上，但股价经历大幅上涨后处于高位。近期高点放量滞涨，伴随高位放量阴线，显示出明显的派发风险，追高性价比极低。",
+                trend_structure: 4,
+                price_position: 2,
+                volume_behavior: 2,
+                previous_abnormal_move: 1
+            },
+            {
+                code: "601231",
+                score: 1.3,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "周线级别的主升浪疑似结束，高位放量下跌呈现明显出货特征，鉴于前期涨幅已十分巨大，当前追高风险极大且调整压力沉重。",
+                trend_structure: 2,
+                price_position: 1,
+                volume_behavior: 1,
+                previous_abnormal_move: 1
+            },
+            {
+                code: "601611",
+                score: 2.3,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "周线级别上升趋势仍在，但日线在前期高点附近遇阻，且伴随高位放量阴线，有资金出货迹象，考虑到从底部启动涨幅已大，追高风险显著。",
+                trend_structure: 4,
+                price_position: 3,
+                volume_behavior: 2,
+                previous_abnormal_move: 1
+            },
+            {
+                code: "601877",
+                score: 2.8,
+                verdict: "FAIL",
+                signal_type: "distribution_risk",
+                comment: "周线级别的上升趋势在日线上演变为加速赶顶，虽然前期放量上涨的异动明显，但高位回调并未缩量，显示抛压沉重，当前位置追高风险巨大，有阶段性见顶派发的迹象。",
+                trend_structure: 4,
+                price_position: 1,
+                volume_behavior: 2,
+                previous_abnormal_move: 4
+            }
+        ];
+
+        function getSignalTypeClass(type) {
+            if (type === 'trend_start') return 'trend-start';
+            if (type === 'distribution_risk') return 'distribution';
+            return 'rebound';
+        }
+
+        function getSignalTypeLabel(type) {
+            if (type === 'trend_start') return '趋势启动';
+            if (type === 'distribution_risk') return '派发风险';
+            return '反弹';
+        }
+
+        function renderStocks() {
+            const passStocks = stockData.filter(s => s.verdict === 'PASS');
+            const failStocks = stockData.filter(s => s.verdict === 'FAIL');
+
+            // Render PASS stocks
+            document.getElementById('pass-stocks').innerHTML = passStocks.map(stock => `
+                <div class="stock-card pass" onclick="showDetail('${stock.code}')">
+                    <div class="stock-header">
+                        <span class="stock-code">${stock.code}</span>
+                        <span class="stock-score pass">${stock.score}</span>
+                    </div>
+                    <div class="stock-meta">
+                        <span class="tag ${getSignalTypeClass(stock.signal_type)}">${getSignalTypeLabel(stock.signal_type)}</span>
+                        <span>📊 趋势:${stock.trend_structure} 位置:${stock.price_position}</span>
+                    </div>
+                    <div class="stock-comment">${stock.comment}</div>
+                    <div class="chart-preview">
+                        <img src="../data/kline/2026-03-18/${stock.code}_day.jpg" alt="${stock.code} K线图" 
+                             onerror="this.style.display='none'; this.parentElement.innerText='📈 K线图加载失败'">
+                    </div>
+                </div>
+            `).join('');
+
+            // Render FAIL stocks
+            renderFailStocks(failStocks);
+        }
+
+        function renderFailStocks(stocks) {
+            document.getElementById('fail-stocks').innerHTML = stocks.map(stock => `
+                <div class="stock-card fail" onclick="showDetail('${stock.code}')">
+                    <div class="stock-header">
+                        <span class="stock-code">${stock.code}</span>
+                        <span class="stock-score fail">${stock.score}</span>
+                    </div>
+                    <div class="stock-meta">
+                        <span class="tag ${getSignalTypeClass(stock.signal_type)}">${getSignalTypeLabel(stock.signal_type)}</span>
+                        <span>📊 趋势:${stock.trend_structure} 位置:${stock.price_position}</span>
+                    </div>
+                    <div class="stock-comment">${stock.comment}</div>
+                </div>
+            `).join('');
+        }
+
+        function filterStocks(type) {
+            // Update active tab
+            document.querySelectorAll('.filter-tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+
+            const failStocks = stockData.filter(s => s.verdict === 'FAIL');
+            let filtered = failStocks;
+            
+            if (type === 'distribution') {
+                filtered = failStocks.filter(s => s.signal_type === 'distribution_risk');
+            } else if (type === 'rebound') {
+                filtered = failStocks.filter(s => s.signal_type === 'rebound');
+            }
+            
+            renderFailStocks(filtered);
+        }
+
+        function showDetail(code) {
+            const stock = stockData.find(s => s.code === code);
+            if (!stock) return;
+
+            document.getElementById('modal-title').innerHTML = `
+                <span style="color: ${stock.verdict === 'PASS' ? '#00ff88' : '#ff4757'}">${stock.code}</span>
+                <span style="font-size: 0.6em; margin-left: 15px">评分: ${stock.score}</span>
+            `;
+
+            document.getElementById('modal-body').innerHTML = `
+                <div class="stock-meta" style="margin-bottom: 20px;">
+                    <span class="tag ${getSignalTypeClass(stock.signal_type)}">${getSignalTypeLabel(stock.signal_type)}</span>
+                    <span class="tag" style="background: ${stock.verdict === 'PASS' ? 'rgba(0,255,136,0.3)' : 'rgba(255,71,87,0.3)'}; 
+                                     color: ${stock.verdict === 'PASS' ? '#00ff88' : '#ff4757'}">${stock.verdict}</span>
+                </div>
+                
+                <div class="score-breakdown">
+                    <div class="score-item">
+                        <div class="score-item-label">趋势结构</div>
+                        <div class="score-item-value" style="color: ${stock.trend_structure >= 3 ? '#00ff88' : '#ff4757'}">${stock.trend_structure}/5</div>
+                    </div>
+                    <div class="score-item">
+                        <div class="score-item-label">价格位置</div>
+                        <div class="score-item-value" style="color: ${stock.price_position >= 3 ? '#00ff88' : '#ffa502'}">${stock.price_position}/5</div>
+                    </div>
+                    <div class="score-item">
+                        <div class="score-item-label">量价行为</div>
+                        <div class="score-item-value" style="color: ${stock.volume_behavior >= 3 ? '#00ff88' : '#ff4757'}">${stock.volume_behavior}/5</div>
+                    </div>
+                    <div class="score-item">
+                        <div class="score-item-label">前期异动</div>
+                        <div class="score-item-value" style="color: ${stock.previous_abnormal_move >= 3 ? '#00ff88' : '#ff4757'}">${stock.previous_abnormal_move}/5</div>
+                    </div>
+                </div>
+
+                ${stock.trend_reasoning ? `
+                <div class="reasoning-section">
+                    <div class="reasoning-title">📈 趋势分析</div>
+                    <div class="reasoning-text">${stock.trend_reasoning}</div>
+                </div>
+                ` : ''}
+
+                ${stock.position_reasoning ? `
+                <div class="reasoning-section">
+                    <div class="reasoning-title">📍 位置分析</div>
+                    <div class="reasoning-text">${stock.position_reasoning}</div>
+                </div>
+                ` : ''}
+
+                ${stock.volume_reasoning ? `
+                <div class="reasoning-section">
+                    <div class="reasoning-title">📊 量价分析</div>
+                    <div class="reasoning-text">${stock.volume_reasoning}</div>
+                </div>
+                ` : ''}
+
+                ${stock.abnormal_move_reasoning ? `
+                <div class="reasoning-section">
+                    <div class="reasoning-title">⚡ 异动分析</div>
+                    <div class="reasoning-text">${stock.abnormal_move_reasoning}</div>
+                </div>
+                ` : ''}
+
+                ${stock.signal_reasoning ? `
+                <div class="reasoning-section">
+                    <div class="reasoning-title">🎯 信号综合判断</div>
+                    <div class="reasoning-text">${stock.signal_reasoning}</div>
+                </div>
+                ` : ''}
+
+                <div class="reasoning-section" style="margin-top: 25px; padding: 20px; background: rgba(0,0,0,0.3); border-radius: 10px;">
+                    <div class="reasoning-title">💡 AI评语</div>
+                    <div class="reasoning-text">${stock.comment}</div>
+                </div>
+
+                <div class="chart-preview" style="margin-top: 20px; height: 300px;">
+                    <img src="../data/kline/2026-03-18/${stock.code}_day.jpg" alt="${stock.code} K线图" 
+                         style="max-height: 100%; object-fit: contain;"
+                         onerror="this.style.display='none'; this.parentElement.innerText='📈 K线图加载失败'">
+                </div>
+            `;
+
+            document.getElementById('detail-modal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('detail-modal').classList.remove('active');
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('detail-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+
+        // Initialize
+        renderStocks();
+    </script>
+</body>
+</html>
