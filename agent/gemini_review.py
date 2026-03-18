@@ -44,7 +44,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "output_dir": "data/review",
     "prompt_path": "agent/prompt.md",
     # ZenMux API 参数
-    "model": "google/gemini-2.5-pro",
+    "model": "google/gemini-3.1-pro-preview",
     "request_delay": 5,
     "skip_existing": False,
     "suggest_min_score": 4.0,

@@ -17,13 +17,16 @@ prompt_path: agent/prompt.md
 base_url: https://zenmux.ai/api/v1
 
 # 模型名称（ZenMux 支持的模型，如 google/gemini-2.5-pro, anthropic/claude-sonnet-4.5 等）
-model: google/gemini-2.5-pro
+# model: google/gemini-2.5-pro
+# model: google/gemini-3-flash-preview
+# model: openai/gpt-5.4-nano
+model: google/gemini-3.1-pro-preview
 
 # 相邻 API 调用间隔（秒）
 request_delay: 5
 
 # true: 跳过已存在单股 JSON（断点续跑）
-skip_existing: false
+skip_existing: true
 
 # 推荐最小分数门槛
 suggest_min_score: 4.0
