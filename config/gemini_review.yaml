@@ -1,5 +1,5 @@
 # gemini_review.yaml
-# Gemini 图表复评配置（相对路径基于项目根目录）
+# ZenMux API 图表复评配置（相对路径基于项目根目录）
 
 # 候选列表 JSON
 candidates: data/candidates/candidates_latest.json
@@ -13,8 +13,11 @@ output_dir: data/review
 # 提示词文件
 prompt_path: agent/prompt.md
 
-# Gemini 模型名称
-model: gemini-3.1-pro-preview
+# ZenMux API 基础 URL（OpenAI 兼容端点）
+base_url: https://zenmux.ai/api/v1
+
+# 模型名称（ZenMux 支持的模型，如 google/gemini-2.5-pro, anthropic/claude-sonnet-4.5 等）
+model: google/gemini-2.5-pro
 
 # 相邻 API 调用间隔（秒）
 request_delay: 5

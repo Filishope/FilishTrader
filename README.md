@@ -5,7 +5,7 @@
 - 使用 Tushare 拉取股票日线数据
 - 用量化规则做初选（目前只实现了B1选股）
 - 导出候选股票 K 线图
-- 调用 Gemini 对图表进行 AI 复评打分
+- 调用 ZenMux API 对图表进行 AI 复评打分（支持 Google Gemini、Anthropic Claude 等多种模型）
 
 ---
 
@@ -13,6 +13,7 @@
 
 - 推翻了旧版选股模式（各式各样的B1太麻烦了）
 - 新加入了AI看图打分精选功能（是的，不用再自己看图了）
+- 使用 ZenMux API 支持多种模型（Gemini、Claude 等）
 - 目前只支持B1选股，后续Z哥讲了砖型图10张图后，会更新砖型图精选
 
 ---
@@ -24,7 +25,7 @@
 1. 下载 K 线数据（pipeline.fetch_kline）
 2. 量化初选（pipeline.cli preselect）
 3. 导出候选图表（dashboard/export_kline_charts.py）
-4. Gemini 复评（agent/gemini_review.py）
+4. ZenMux AI 复评（agent/gemini_review.py）
 5. 打印推荐结果（读取 suggestion.json）
 
 输出主链路：
@@ -40,8 +41,8 @@
 
 - [pipeline](pipeline)：数据抓取与量化初选
 - [dashboard](dashboard)：看盘界面与图表导出
-- [agent](agent)：LLM 评审逻辑（Gemini）
-- [config](config)：抓取、初选、Gemini 复评配置
+- [agent](agent)：LLM 评审逻辑（ZenMux API，支持多种模型）
+- [config](config)：抓取、初选、AI 复评配置
 - [data](data)：运行数据与结果
 - [run_all.py](run_all.py)：全流程一键入口
 
@@ -68,7 +69,7 @@ Windows PowerShell（永久写入）：
 
 ~~~powershell
 [Environment]::SetEnvironmentVariable("TUSHARE_TOKEN", "你的TushareToken", "User")
-[Environment]::SetEnvironmentVariable("GEMINI_API_KEY", "你的GeminiApiKey", "User")
+[Environment]::SetEnvironmentVariable("ZENMUX_API_KEY", "你的ZenMuxApiKey", "User")
 ~~~
 
 写入后请重开终端，环境变量才会在新会话中生效。
@@ -134,7 +135,7 @@ python dashboard/export_kline_charts.py
 
 输出到 data/kline/选股日期，图像命名为 代码_day.jpg。
 
-### 步骤 4：Gemini 图表复评
+### 步骤 4：ZenMux AI 图表复评
 
 ~~~bash
 python agent/gemini_review.py
@@ -172,7 +173,8 @@ python agent/gemini_review.py --config config/gemini_review.yaml
 
 在 [config/gemini_review.yaml](config/gemini_review.yaml) 中可调整：
 
-- model：模型名称
+- model：模型名称（如 `google/gemini-2.5-pro`, `anthropic/claude-sonnet-4.5` 等，详见 ZenMux 文档）
+- base_url：ZenMux API 基础 URL（默认 `https://zenmux.ai/api/v1`）
 - request_delay：调用间隔（防限流）
 - skip_existing：是否断点续跑
 - suggest_min_score：推荐分数门槛
@@ -210,10 +212,11 @@ data/review/日期/suggestion.json
 - 确认已安装 kaleido
 - 重新安装：pip install -U kaleido
 
-### Q3：Gemini 运行失败
+### Q3：ZenMux API 运行失败
 
-- 检查 GEMINI_API_KEY 是否设置
+- 检查 ZENMUX_API_KEY 是否设置
 - 观察是否命中限流，可提高 request_delay
+- 检查 model 名称是否为 ZenMux 支持的模型（参考 ZenMux 文档）
 
 ### Q4：没有候选股票
 

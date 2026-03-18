@@ -1,7 +1,7 @@
 """
 gemini_review.py
 ~~~~~~~~~~~~~~~~
-使用 Google Gemini 对候选股票进行图表分析评分。
+使用 ZenMux API 对候选股票进行图表分析评分。
 继承自 BaseReviewer 基础架构。
 
 用法：
@@ -12,7 +12,7 @@ gemini_review.py
     默认读取 config/gemini_review.yaml。
 
 环境变量：
-    GEMINI_API_KEY  —— Google Gemini API Key（必填）
+    ZENMUX_API_KEY  —— ZenMux API Key（必填）
 
 输出：
     ./data/review/{pick_date}/{code}.json   每支股票的评分 JSON
@@ -20,13 +20,13 @@ gemini_review.py
 """
 
 import argparse
+import base64
 import os
 import sys
 from pathlib import Path
 from typing import Any
 
-from google import genai
-from google.genai import types
+import openai
 import yaml
 
 from base_reviewer import BaseReviewer
@@ -43,11 +43,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "kline_dir": "data/kline",
     "output_dir": "data/review",
     "prompt_path": "agent/prompt.md",
-    # Gemini 模型参数
-    "model": "gemini-3.1-pro-preview",
+    # ZenMux API 参数
+    "model": "google/gemini-2.5-pro",
     "request_delay": 5,
     "skip_existing": False,
     "suggest_min_score": 4.0,
+    # ZenMux API 基础 URL
+    "base_url": "https://zenmux.ai/api/v1",
 }
 
 
@@ -75,29 +77,33 @@ def load_config(config_path: Path | None = None) -> dict[str, Any]:
     return cfg
 
 
-class GeminiReviewer(BaseReviewer):
+class ZenMuxReviewer(BaseReviewer):
     def __init__(self, config):
         super().__init__(config)
-        
-        api_key = os.environ.get("GEMINI_API_KEY", "")
+
+        api_key = os.environ.get("ZENMUX_API_KEY", "")
         if not api_key:
-            print("[ERROR] 未找到环境变量 GEMINI_API_KEY，请先设置后重试。", file=sys.stderr)
+            print("[ERROR] 未找到环境变量 ZENMUX_API_KEY，请先设置后重试。", file=sys.stderr)
             sys.exit(1)
-            
-        self.client = genai.Client(api_key=api_key)
+
+        self.client = openai.OpenAI(
+            api_key=api_key,
+            base_url=config.get("base_url", "https://zenmux.ai/api/v1"),
+        )
 
     @staticmethod
-    def image_to_part(path: Path) -> types.Part:
-        """将图片文件转为 Gemini Part 对象。"""
+    def image_to_base64(path: Path) -> str:
+        """将图片文件转为 base64 编码的 data URL。"""
         suffix = path.suffix.lower()
         mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}
         mime_type = mime_map.get(suffix, "image/jpeg")
         data = path.read_bytes()
-        return types.Part.from_bytes(data=data, mime_type=mime_type)
+        base64_data = base64.b64encode(data).decode("utf-8")
+        return f"data:{mime_type};base64,{base64_data}"
 
     def review_stock(self, code: str, day_chart: Path, prompt: str) -> dict:
         """
-        调用 Gemini API，对单支股票进行图表分析，返回解析后的 JSON 结果。
+        调用 ZenMux API，对单支股票进行图表分析，返回解析后的 JSON 结果。
         """
         user_text = (
             f"股票代码：{code}\n\n"
@@ -105,24 +111,31 @@ class GeminiReviewer(BaseReviewer):
             "并严格按照要求输出 JSON。"
         )
 
-        parts: list[types.Part] = [
-            types.Part.from_text(text="【日线图】"),
-            self.image_to_part(day_chart),
-            types.Part.from_text(text=user_text),
-        ]
+        # 将图片转为 base64 data URL
+        image_data_url = self.image_to_base64(day_chart)
 
-        response = self.client.models.generate_content(
-            model=self.config.get("model", "gemini-3.1-pro-preview"),
-            contents=[types.Content(role="user", parts=parts)],
-            config=types.GenerateContentConfig(
-                system_instruction=prompt,
-                temperature=0.2,
-            ),
+        response = self.client.chat.completions.create(
+            model=self.config.get("model", "google/gemini-2.5-pro"),
+            messages=[
+                {
+                    "role": "system",
+                    "content": prompt,
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "【日线图】"},
+                        {"type": "image_url", "image_url": {"url": image_data_url}},
+                        {"type": "text", "text": user_text},
+                    ],
+                },
+            ],
+            temperature=0.2,
         )
 
-        response_text = response.text
+        response_text = response.choices[0].message.content
         if response_text is None:
-            raise RuntimeError(f"Gemini 返回空响应，无法解析 JSON（code={code}）")
+            raise RuntimeError(f"ZenMux API 返回空响应，无法解析 JSON（code={code}）")
 
         result = self.extract_json(response_text)
         result["code"] = code  # 附加股票代码便于追溯
@@ -130,7 +143,7 @@ class GeminiReviewer(BaseReviewer):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Gemini 图表复评")
+    parser = argparse.ArgumentParser(description="ZenMux 图表复评")
     parser.add_argument(
         "--config",
         default=str(_DEFAULT_CONFIG_PATH),
@@ -139,7 +152,7 @@ def main():
     args = parser.parse_args()
 
     config = load_config(Path(args.config))
-    reviewer = GeminiReviewer(config)
+    reviewer = ZenMuxReviewer(config)
     reviewer.run()
 
 
