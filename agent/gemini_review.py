@@ -53,12 +53,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
 }
 
 
-def _resolve_cfg_path(path_like: str | Path, base_dir: Path = _ROOT) -> Path:
+def _resolve_cfg_path(path_like, base_dir=_ROOT):
     p = Path(path_like)
     return p if p.is_absolute() else (base_dir / p)
 
 
-def load_config(config_path: Path | None = None) -> dict[str, Any]:
+def load_config(config_path=None):
     cfg_path = config_path or _DEFAULT_CONFIG_PATH
     if not cfg_path.exists():
         raise FileNotFoundError(f"找不到配置文件：{cfg_path}")
@@ -83,7 +83,10 @@ class ZenMuxReviewer(BaseReviewer):
 
         api_key = os.environ.get("ZENMUX_API_KEY", "")
         if not api_key:
-            print("[ERROR] 未找到环境变量 ZENMUX_API_KEY，请先设置后重试。", file=sys.stderr)
+            print(
+                "[ERROR] 未找到环境变量 ZENMUX_API_KEY，请先设置后重试。",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
         self.client = openai.OpenAI(
