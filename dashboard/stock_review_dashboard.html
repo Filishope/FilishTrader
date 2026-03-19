@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FilishTrader - 2026-03-19 选股报告</title>
+    <title>FilishTrader - 2026-03-19 AI选股报告</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -74,7 +74,7 @@
         }
         .stock-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
             gap: 15px;
         }
         .stock-card {
@@ -111,10 +111,9 @@
         }
         .stock-meta {
             display: flex;
-            gap: 15px;
+            gap: 10px;
             margin-bottom: 10px;
-            font-size: 0.9em;
-            color: rgba(255,255,255,0.7);
+            font-size: 0.85em;
         }
         .tag {
             padding: 4px 10px;
@@ -122,35 +121,28 @@
             font-size: 0.75em;
             font-weight: 500;
         }
-        .tag.b1 { background: rgba(0,212,255,0.3); color: #00d4ff; }
-        .tag.buy { background: rgba(0,255,136,0.3); color: #00ff88; }
+        .tag.trend-start { background: rgba(0,255,136,0.3); color: #00ff88; }
+        .tag.pass { background: rgba(0,212,255,0.3); color: #00d4ff; }
+        .rank-badge {
+            display: inline-block;
+            width: 28px;
+            height: 28px;
+            line-height: 28px;
+            text-align: center;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ffd700, #ffaa00);
+            color: #000;
+            font-weight: bold;
+            font-size: 0.85em;
+            margin-right: 8px;
+        }
         .stock-comment {
             color: rgba(255,255,255,0.8);
             font-size: 0.9em;
-            line-height: 1.5;
+            line-height: 1.6;
             margin-top: 10px;
             padding-top: 10px;
             border-top: 1px solid rgba(255,255,255,0.1);
-        }
-        .chart-preview {
-            width: 100%;
-            height: 180px;
-            background: rgba(0,0,0,0.3);
-            border-radius: 8px;
-            margin-top: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
-        .chart-preview img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-        .chart-placeholder {
-            color: rgba(255,255,255,0.4);
-            font-size: 0.85em;
         }
         .excluded-section {
             background: rgba(255,71,87,0.05);
@@ -168,6 +160,15 @@
             font-size: 0.9em;
             color: #ff6b81;
         }
+        .ai-info {
+            background: rgba(0,212,255,0.1);
+            border: 1px solid rgba(0,212,255,0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+            color: rgba(255,255,255,0.8);
+        }
         .footer {
             text-align: center;
             padding: 30px;
@@ -175,10 +176,7 @@
             border-top: 1px solid rgba(255,255,255,0.1);
             margin-top: 30px;
         }
-        .footer a {
-            color: #00d4ff;
-            text-decoration: none;
-        }
+        .footer a { color: #00d4ff; text-decoration: none; }
         @media (max-width: 768px) {
             .stock-grid { grid-template-columns: 1fr; }
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -190,8 +188,12 @@
         <header>
             <h1>📈 FilishTrader</h1>
             <div class="subtitle">AI 驱动的 A 股选股系统</div>
-            <div class="update-time">选股日期: 2026-03-19 | 生成时间: 17:09 CST</div>
+            <div class="update-time">选股日期: 2026-03-19 | 生成时间: 18:16 CST | 模型: Gemini-3.1-Pro</div>
         </header>
+
+        <div class="ai-info">
+            <strong>🤖 AI 分析说明：</strong>本报告基于 Google Gemini-3.1-Pro 模型对 K 线图的真实分析，从趋势结构、价格位置、量能行为、前期异动四个维度评分（满分5分）。评分≥4.0为推荐买入。
+        </div>
 
         <div class="stats-grid">
             <div class="stat-card">
@@ -199,12 +201,12 @@
                 <div class="stat-label">候选股票</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value pass">15</div>
-                <div class="stat-label">推荐买入</div>
+                <div class="stat-value pass">6</div>
+                <div class="stat-label">AI推荐买入</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value fail">4</div>
-                <div class="stat-label">未达门槛</div>
+                <div class="stat-value fail">13</div>
+                <div class="stat-label">风险排除</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value">4.0</div>
@@ -215,126 +217,155 @@
         <div class="section">
             <div class="section-title">
                 <div class="icon">🏆</div>
-                <span>推荐股票 Top 10</span>
+                <span>AI 推荐买入 (评分≥4.0)</span>
             </div>
-            <div class="stock-grid" id="topStocks">
-                <!-- Stock cards will be inserted here -->
-            </div>
-        </div>
+            <div class="stock-grid" id="recommendedStocks">
+                <!-- 600101 明星电力 4.6分 -->
+                <div class="stock-card">
+                    <div class="stock-header">
+                        <div>
+                            <span class="rank-badge">1</span>
+                            <span class="stock-code">600101</span>
+                            <span class="stock-name">明星电力</span>
+                        </div>
+                        <div class="stock-score">4.6</div>
+                    </div>
+                    <div class="stock-meta">
+                        <span class="tag trend-start">趋势启动</span>
+                        <span class="tag pass">PASS</span>
+                    </div>
+                    <div class="stock-comment">
+                        日线均线已形成健康多头趋势，前期存在多次明显的放量建仓异动，近期突破后呈现完美的放量主升与极度缩量回踩结构，当前回测均线支撑风险可控，具备较强的波段主升延续空间。
+                    </div>
+                </div>
 
-        <div class="section">
-            <div class="section-title">
-                <div class="icon">📊</div>
-                <span>其他推荐 (4.0-4.4分)</span>
-            </div>
-            <div class="stock-grid" id="otherStocks">
-                <!-- Other stock cards -->
+                <!-- 600098 广州发展 4.6分 -->
+                <div class="stock-card">
+                    <div class="stock-header">
+                        <div>
+                            <span class="rank-badge">2</span>
+                            <span class="stock-code">600098</span>
+                            <span class="stock-name">广州发展</span>
+                        </div>
+                        <div class="stock-score">4.6</div>
+                    </div>
+                    <div class="stock-meta">
+                        <span class="tag trend-start">趋势启动</span>
+                        <span class="tag pass">PASS</span>
+                    </div>
+                    <div class="stock-comment">
+                        该股经历长期底部盘整后，近期以极其明显的倍量大阳线强势突破平台，均线已形成健康多头排列，当前主升启动后的首次回踩呈现完美的极度缩量状态，主力资金介入极深且上方空间已打开，具备极高的波段爆发潜力。
+                    </div>
+                </div>
+
+                <!-- 000927 中国铁物 4.3分 -->
+                <div class="stock-card">
+                    <div class="stock-header">
+                        <div>
+                            <span class="rank-badge">3</span>
+                            <span class="stock-code">000927</span>
+                            <span class="stock-name">中国铁物</span>
+                        </div>
+                        <div class="stock-score">4.3</div>
+                    </div>
+                    <div class="stock-meta">
+                        <span class="tag trend-start">趋势启动</span>
+                        <span class="tag pass">PASS</span>
+                    </div>
+                    <div class="stock-comment">
+                        日线多头趋势健康，前期巨量突破底部平台建仓痕迹极其明显，近期上涨放量回调缩量结构良好，当前回踩风险较低，具备波段上行空间。
+                    </div>
+                </div>
+
+                <!-- 600116 三峡水利 4.3分 -->
+                <div class="stock-card">
+                    <div class="stock-header">
+                        <div>
+                            <span class="rank-badge">4</span>
+                            <span class="stock-code">600116</span>
+                            <span class="stock-name">三峡水利</span>
+                        </div>
+                        <div class="stock-score">4.3</div>
+                    </div>
+                    <div class="stock-meta">
+                        <span class="tag trend-start">趋势启动</span>
+                        <span class="tag pass">PASS</span>
+                    </div>
+                    <div class="stock-comment">
+                        该股中期趋势已确立多头排列，前期底部密集放量展现出极强的资金建仓痕迹，近期主升突破后迎来相对缩量的良性回踩，当前位置追高风险可控且具备较好的波段爆发空间。
+                    </div>
+                </div>
+
+                <!-- 000993 闽东电力 4.1分 -->
+                <div class="stock-card">
+                    <div class="stock-header">
+                        <div>
+                            <span class="rank-badge">5</span>
+                            <span class="stock-code">000993</span>
+                            <span class="stock-name">闽东电力</span>
+                        </div>
+                        <div class="stock-score">4.1</div>
+                    </div>
+                    <div class="stock-meta">
+                        <span class="tag trend-start">趋势启动</span>
+                        <span class="tag pass">PASS</span>
+                    </div>
+                    <div class="stock-comment">
+                        该股日线均线呈健康多头排列，前期有极其显著的巨量建仓异动，经过数月缩量洗盘后近期再次呈现上涨放量、回调缩量的良性结构，当前正处于逼近前高压力位的蓄势阶段，若能有效突破前高则波段爆发空间将彻底打开。
+                    </div>
+                </div>
+
+                <!-- 000791 甘肃能源 4.1分 -->
+                <div class="stock-card">
+                    <div class="stock-header">
+                        <div>
+                            <span class="rank-badge">6</span>
+                            <span class="stock-code">000791</span>
+                            <span class="stock-name">甘肃能源</span>
+                        </div>
+                        <div class="stock-score">4.1</div>
+                    </div>
+                    <div class="stock-meta">
+                        <span class="tag trend-start">趋势启动</span>
+                        <span class="tag pass">PASS</span>
+                    </div>
+                    <div class="stock-comment">
+                        该股底部长期横盘后近期爆量突破，主力资金建仓痕迹极强，均线已确立强势多头趋势，当前处于主升启动后的首次缩量回踩，量价结构健康，具备较好的波段爆发潜力。
+                    </div>
+                </div>
             </div>
         </div>
 
         <div class="section excluded-section">
             <div class="section-title">
                 <div class="icon">⚠️</div>
-                <span>未达门槛 (评分&lt;4.0)</span>
+                <span>风险排除 (评分&lt;4.0 或存在出货/高位风险)</span>
             </div>
-            <div class="excluded-grid" id="excludedStocks">
-                <!-- Excluded stocks -->
+            <div class="excluded-grid">
+                <div class="excluded-item">000543 皖能电力 (3.8)</div>
+                <div class="excluded-item">000591 太阳能 (3.5)</div>
+                <div class="excluded-item">000875 电投绿能 (3.1)</div>
+                <div class="excluded-item">000731 四川美丰</div>
+                <div class="excluded-item">000720 新能泰山</div>
+                <div class="excluded-item">000155 川能动力</div>
+                <div class="excluded-item">000949 新乡化纤</div>
+                <div class="excluded-item">000586 汇源通信</div>
+                <div class="excluded-item">000547 航天发展</div>
+                <div class="excluded-item">002001 新和成</div>
+                <div class="excluded-item">001896 豫能控股</div>
+                <div class="excluded-item">000893 亚钾国际</div>
+                <div class="excluded-item">000962 东方钽业</div>
             </div>
         </div>
 
         <div class="footer">
-            <p>FilishTrader AI 选股系统 | 策略: B1 选股 + AI 复评</p>
+            <p>FilishTrader AI 选股系统 | 策略: B1 量化初选 + Gemini AI 图表复评</p>
             <p>模型: google/gemini-3.1-pro-preview via ZenMux API</p>
             <p style="margin-top: 10px;">
                 <a href="https://github.com/Filishope/FilishTrader" target="_blank">GitHub</a> | 
-                <a href="#" onclick="alert('每日18:20自动更新')">定时任务</a>
+                <a href="#" onclick="alert('每日 18:20 自动运行')">定时任务</a>
             </p>
         </div>
     </div>
-
-    <script>
-        // Stock data
-        const stockData = {
-            top: [
-                {code: "000543", name: "皖能电力", score: 4.8, signal: "b1", verdict: "BUY", comment: "技术面良好，量能配合，B1信号明确"},
-                {code: "000731", name: "四川美丰", score: 4.6, signal: "b1", verdict: "BUY", comment: "技术面良好，量能配合"},
-                {code: "000720", name: "新能泰山", score: 4.6, signal: "b1", verdict: "BUY", comment: "技术面良好，量能配合"},
-                {code: "000586", name: "汇源通信", score: 4.6, signal: "b1", verdict: "BUY", comment: "技术面良好，量能配合"},
-                {code: "001896", name: "豫能控股", score: 4.5, signal: "b1", verdict: "BUY", comment: "技术面良好，量能配合"},
-                {code: "000791", name: "甘肃能源", score: 4.5, signal: "b1", verdict: "BUY", comment: "技术面良好，量能配合"},
-                {code: "000927", name: "中国铁物", score: 4.5, signal: "b1", verdict: "BUY", comment: "技术面良好，量能配合"},
-                {code: "002001", name: "新和成", score: 4.4, signal: "b1", verdict: "BUY", comment: "技术面良好，量能配合"},
-                {code: "000155", name: "川能动力", score: 4.4, signal: "b1", verdict: "BUY", comment: "技术面良好，量能配合"},
-                {code: "600098", name: "广州发展", score: 4.4, signal: "b1", verdict: "BUY", comment: "技术面良好，量能配合"}
-            ],
-            other: [
-                {code: "600116", name: "三峡水利", score: 4.4, signal: "b1", verdict: "BUY", comment: "技术面良好，量能配合"},
-                {code: "000591", name: "太阳能", score: 4.3, signal: "b1", verdict: "BUY", comment: "技术面良好，量能配合"},
-                {code: "000875", name: "电投绿能", score: 4.3, signal: "b1", verdict: "BUY", comment: "技术面良好，量能配合"},
-                {code: "000893", name: "亚钾国际", score: 4.3, signal: "b1", verdict: "BUY", comment: "技术面良好，量能配合"},
-                {code: "000949", name: "新乡化纤", score: 4.0, signal: "b1", verdict: "BUY", comment: "技术面良好，量能配合"}
-            ],
-            excluded: [
-                {code: "000962", name: "东方钽业"},
-                {code: "600101", name: "明星电力"},
-                {code: "000547", name: "航天发展"},
-                {code: "000993", name: "闽东电力"}
-            ]
-        };
-
-        // Render top stocks
-        const topContainer = document.getElementById('topStocks');
-        stockData.top.forEach((stock, index) => {
-            topContainer.innerHTML += `
-                <div class="stock-card">
-                    <div class="stock-header">
-                        <div>
-                            <span class="stock-code">${stock.code}</span>
-                            <span class="stock-name">${stock.name}</span>
-                            <span style="color: #ffa502; font-size: 0.8em;"> #${index + 1}</span>
-                        </div>
-                        <div class="stock-score">${stock.score.toFixed(1)}</div>
-                    </div>
-                    <div class="stock-meta">
-                        <span class="tag ${stock.signal}">${stock.signal.toUpperCase()}</span>
-                        <span class="tag buy">${stock.verdict}</span>
-                    </div>
-                    <div class="stock-comment">${stock.comment}</div>
-                    <div class="chart-preview">
-                        <div class="chart-placeholder">K线图表: ${stock.code}_day.jpg</div>
-                    </div>
-                </div>
-            `;
-        });
-
-        // Render other stocks
-        const otherContainer = document.getElementById('otherStocks');
-        stockData.other.forEach(stock => {
-            otherContainer.innerHTML += `
-                <div class="stock-card">
-                    <div class="stock-header">
-                        <div>
-                            <span class="stock-code">${stock.code}</span>
-                            <span class="stock-name">${stock.name}</span>
-                        </div>
-                        <div class="stock-score">${stock.score.toFixed(1)}</div>
-                    </div>
-                    <div class="stock-meta">
-                        <span class="tag ${stock.signal}">${stock.signal.toUpperCase()}</span>
-                        <span class="tag buy">${stock.verdict}</span>
-                    </div>
-                    <div class="stock-comment">${stock.comment}</div>
-                </div>
-            `;
-        });
-
-        // Render excluded stocks
-        const excludedContainer = document.getElementById('excludedStocks');
-        stockData.excluded.forEach(stock => {
-            excludedContainer.innerHTML += `
-                <div class="excluded-item">${stock.code} ${stock.name}</div>
-            `;
-        });
-    </script>
 </body>
 </html>
