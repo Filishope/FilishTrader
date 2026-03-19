@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FilishTrader - 2026-03-19 AI选股报告</title>
+    <title>FilishTrader - AI选股报告</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -83,6 +83,7 @@
             padding: 20px;
             border-left: 4px solid #00ff88;
             transition: all 0.3s;
+            cursor: pointer;
         }
         .stock-card:hover {
             background: rgba(255,255,255,0.1);
@@ -181,14 +182,57 @@
             .stock-grid { grid-template-columns: 1fr; }
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
         }
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.8);
+        }
+        .modal-content {
+            background-color: #1a1a2e;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #00d4ff;
+            width: 90%;
+            max-width: 500px;
+            border-radius: 12px;
+            position: relative;
+        }
+        .close {
+            color: #fff;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: #00d4ff;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .modal-image {
+            width: 100%;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        .modal-details {
+            color: #ccc;
+            line-height: 1.6;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>📈 FilishTrader</h1>
-            <div class="subtitle">AI 驱动的 A 股选股系统</div>
-            <div class="update-time">选股日期: 2026-03-19 | 生成时间: 18:16 CST | 模型: Gemini-3.1-Pro</div>
+            <div class="subtitle" id="pageSubtitle">AI 驱动的 A 股选股系统</div>
+            <div class="update-time" id="pageUpdateTime">选股日期: 加载中... | 生成时间: -- | 模型: Gemini-3.1-Pro</div>
         </header>
 
         <div class="ai-info">
@@ -197,19 +241,19 @@
 
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-value pending">19</div>
+                <div class="stat-value pending" id="candidatesCount">--</div>
                 <div class="stat-label">候选股票</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value pass">6</div>
+                <div class="stat-value pass" id="passCount">--</div>
                 <div class="stat-label">AI推荐买入</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value fail">13</div>
+                <div class="stat-value fail" id="failCount">--</div>
                 <div class="stat-label">风险排除</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">4.0</div>
+                <div class="stat-value" id="thresholdValue">--</div>
                 <div class="stat-label">评分门槛</div>
             </div>
         </div>
@@ -220,119 +264,7 @@
                 <span>AI 推荐买入 (评分≥4.0)</span>
             </div>
             <div class="stock-grid" id="recommendedStocks">
-                <!-- 600101 明星电力 4.6分 -->
-                <div class="stock-card">
-                    <div class="stock-header">
-                        <div>
-                            <span class="rank-badge">1</span>
-                            <span class="stock-code">600101</span>
-                            <span class="stock-name">明星电力</span>
-                        </div>
-                        <div class="stock-score">4.6</div>
-                    </div>
-                    <div class="stock-meta">
-                        <span class="tag trend-start">趋势启动</span>
-                        <span class="tag pass">PASS</span>
-                    </div>
-                    <div class="stock-comment">
-                        日线均线已形成健康多头趋势，前期存在多次明显的放量建仓异动，近期突破后呈现完美的放量主升与极度缩量回踩结构，当前回测均线支撑风险可控，具备较强的波段主升延续空间。
-                    </div>
-                </div>
-
-                <!-- 600098 广州发展 4.6分 -->
-                <div class="stock-card">
-                    <div class="stock-header">
-                        <div>
-                            <span class="rank-badge">2</span>
-                            <span class="stock-code">600098</span>
-                            <span class="stock-name">广州发展</span>
-                        </div>
-                        <div class="stock-score">4.6</div>
-                    </div>
-                    <div class="stock-meta">
-                        <span class="tag trend-start">趋势启动</span>
-                        <span class="tag pass">PASS</span>
-                    </div>
-                    <div class="stock-comment">
-                        该股经历长期底部盘整后，近期以极其明显的倍量大阳线强势突破平台，均线已形成健康多头排列，当前主升启动后的首次回踩呈现完美的极度缩量状态，主力资金介入极深且上方空间已打开，具备极高的波段爆发潜力。
-                    </div>
-                </div>
-
-                <!-- 000927 中国铁物 4.3分 -->
-                <div class="stock-card">
-                    <div class="stock-header">
-                        <div>
-                            <span class="rank-badge">3</span>
-                            <span class="stock-code">000927</span>
-                            <span class="stock-name">中国铁物</span>
-                        </div>
-                        <div class="stock-score">4.3</div>
-                    </div>
-                    <div class="stock-meta">
-                        <span class="tag trend-start">趋势启动</span>
-                        <span class="tag pass">PASS</span>
-                    </div>
-                    <div class="stock-comment">
-                        日线多头趋势健康，前期巨量突破底部平台建仓痕迹极其明显，近期上涨放量回调缩量结构良好，当前回踩风险较低，具备波段上行空间。
-                    </div>
-                </div>
-
-                <!-- 600116 三峡水利 4.3分 -->
-                <div class="stock-card">
-                    <div class="stock-header">
-                        <div>
-                            <span class="rank-badge">4</span>
-                            <span class="stock-code">600116</span>
-                            <span class="stock-name">三峡水利</span>
-                        </div>
-                        <div class="stock-score">4.3</div>
-                    </div>
-                    <div class="stock-meta">
-                        <span class="tag trend-start">趋势启动</span>
-                        <span class="tag pass">PASS</span>
-                    </div>
-                    <div class="stock-comment">
-                        该股中期趋势已确立多头排列，前期底部密集放量展现出极强的资金建仓痕迹，近期主升突破后迎来相对缩量的良性回踩，当前位置追高风险可控且具备较好的波段爆发空间。
-                    </div>
-                </div>
-
-                <!-- 000993 闽东电力 4.1分 -->
-                <div class="stock-card">
-                    <div class="stock-header">
-                        <div>
-                            <span class="rank-badge">5</span>
-                            <span class="stock-code">000993</span>
-                            <span class="stock-name">闽东电力</span>
-                        </div>
-                        <div class="stock-score">4.1</div>
-                    </div>
-                    <div class="stock-meta">
-                        <span class="tag trend-start">趋势启动</span>
-                        <span class="tag pass">PASS</span>
-                    </div>
-                    <div class="stock-comment">
-                        该股日线均线呈健康多头排列，前期有极其显著的巨量建仓异动，经过数月缩量洗盘后近期再次呈现上涨放量、回调缩量的良性结构，当前正处于逼近前高压力位的蓄势阶段，若能有效突破前高则波段爆发空间将彻底打开。
-                    </div>
-                </div>
-
-                <!-- 000791 甘肃能源 4.1分 -->
-                <div class="stock-card">
-                    <div class="stock-header">
-                        <div>
-                            <span class="rank-badge">6</span>
-                            <span class="stock-code">000791</span>
-                            <span class="stock-name">甘肃能源</span>
-                        </div>
-                        <div class="stock-score">4.1</div>
-                    </div>
-                    <div class="stock-meta">
-                        <span class="tag trend-start">趋势启动</span>
-                        <span class="tag pass">PASS</span>
-                    </div>
-                    <div class="stock-comment">
-                        该股底部长期横盘后近期爆量突破，主力资金建仓痕迹极强，均线已确立强势多头趋势，当前处于主升启动后的首次缩量回踩，量价结构健康，具备较好的波段爆发潜力。
-                    </div>
-                </div>
+                <!-- Stock cards will be injected here by JavaScript -->
             </div>
         </div>
 
@@ -341,20 +273,8 @@
                 <div class="icon">⚠️</div>
                 <span>风险排除 (评分&lt;4.0 或存在出货/高位风险)</span>
             </div>
-            <div class="excluded-grid">
-                <div class="excluded-item">000543 皖能电力 (3.8)</div>
-                <div class="excluded-item">000591 太阳能 (3.5)</div>
-                <div class="excluded-item">000875 电投绿能 (3.1)</div>
-                <div class="excluded-item">000731 四川美丰</div>
-                <div class="excluded-item">000720 新能泰山</div>
-                <div class="excluded-item">000155 川能动力</div>
-                <div class="excluded-item">000949 新乡化纤</div>
-                <div class="excluded-item">000586 汇源通信</div>
-                <div class="excluded-item">000547 航天发展</div>
-                <div class="excluded-item">002001 新和成</div>
-                <div class="excluded-item">001896 豫能控股</div>
-                <div class="excluded-item">000893 亚钾国际</div>
-                <div class="excluded-item">000962 东方钽业</div>
+            <div class="excluded-grid" id="excludedList">
+                <!-- Excluded items will be injected here -->
             </div>
         </div>
 
@@ -367,5 +287,145 @@
             </p>
         </div>
     </div>
+
+    <!-- Modal for stock details -->
+    <div id="stockModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <img class="modal-image" id="modalImage" src="" alt="Stock chart">
+            <div class="modal-details" id="modalDetails"></div>
+        </div>
+    </div>
+
+    <script>
+        // Global state — accessible by all functions
+        let stockNames = {};
+        let currentPickDate = null;
+
+        // ── Entry point ──────────────────────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadDashboard();
+        });
+
+        async function loadDashboard() {
+            try {
+                // 1. Load latest candidate list to get the date + stock names
+                const candidatesResp = await fetch('../data/candidates/candidates_latest.json');
+                if (!candidatesResp.ok) throw new Error('Failed to load candidates');
+                const candidatesData = await candidatesResp.json();
+
+                currentPickDate = candidatesData.pick_date; // e.g., "2026-03-19"
+
+                // Build name lookup map
+                stockNames = {};
+                (candidatesData.candidates || []).forEach(c => {
+                    if (c.code) stockNames[c.code] = c.name || '';
+                });
+
+                // Update page header
+                document.title = `FilishTrader - ${currentPickDate} AI选股报告`;
+                document.getElementById('pageUpdateTime').innerHTML =
+                    `选股日期: ${currentPickDate} | 生成时间: ${new Date().toLocaleString('zh-CN')} | 模型: Gemini-3.1-Pro`;
+
+                // Update candidates count
+                document.getElementById('candidatesCount').textContent =
+                    candidatesData.total ?? candidatesData.candidates?.length ?? 0;
+
+                // 2. Load suggestion data for that date
+                const suggestionResp = await fetch(`../data/review/${currentPickDate}/suggestion.json`);
+                if (!suggestionResp.ok) throw new Error(`Failed to load suggestion for ${currentPickDate}`);
+                const suggestionData = await suggestionResp.json();
+
+                // Update stats (Bug 1 fixed: textContent, not textColor)
+                document.getElementById('passCount').textContent = suggestionData.recommendations?.length ?? 0;
+                document.getElementById('failCount').textContent = suggestionData.excluded?.length ?? 0;
+                document.getElementById('thresholdValue').textContent = suggestionData.min_score_threshold ?? '--';
+
+                // 3. Build recommended stock cards
+                const stockGrid = document.getElementById('recommendedStocks');
+                stockGrid.innerHTML = '';
+
+                (suggestionData.recommendations || []).forEach(stock => {
+                    const card = document.createElement('div');
+                    card.className = 'stock-card';
+
+                    card.innerHTML = `
+                        <div class="stock-header">
+                            <div>
+                                <span class="rank-badge">${stock.rank}</span>
+                                <span class="stock-code">${stock.code}</span>
+                                <span class="stock-name">${getStockName(stock.code)}</span>
+                            </div>
+                            <div class="stock-score">${stock.total_score}</div>
+                        </div>
+                        <div class="stock-meta">
+                            <span class="tag trend-start">${stock.signal_type}</span>
+                            <span class="tag pass">PASS</span>
+                        </div>
+                        <div class="stock-comment">${stock.comment}</div>
+                    `;
+
+                    card.addEventListener('click', () => showStockDetail(stock));
+                    stockGrid.appendChild(card);
+                });
+
+                // 4. Build excluded list
+                const excludedGrid = document.getElementById('excludedList');
+                excludedGrid.innerHTML = '';
+
+                (suggestionData.excluded || []).forEach(code => {
+                    const item = document.createElement('div');
+                    item.className = 'excluded-item';
+                    const name = getStockName(code);
+                    item.textContent = `${code}${name && name !== code ? ' ' + name : ''} (未达标)`;
+                    excludedGrid.appendChild(item);
+                });
+
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                document.getElementById('pageUpdateTime').textContent = `数据加载失败: ${error.message}`;
+            }
+        }
+
+        // ── Helpers ──────────────────────────────────────────────────────────────
+        function getStockName(code) {
+            return stockNames[code] || code;
+        }
+
+        function showStockDetail(stock) {
+            const modal = document.getElementById('stockModal');
+            const modalImage = document.getElementById('modalImage');
+            const modalDetails = document.getElementById('modalDetails');
+
+            // Bug 2 fixed: use module-level currentPickDate instead of undefined local
+            const imgPath = `../data/kline/${stock.date || currentPickDate}/${stock.code}_day.jpg`;
+
+            modalImage.style.display = 'block';
+            modalImage.onerror = function() {
+                this.style.display = 'none';
+            };
+            modalImage.src = imgPath;
+
+            modalDetails.innerHTML = `
+                <h2 style="color:#00d4ff;margin-top:0;">${getStockName(stock.code)} (${stock.code})</h2>
+                <p><strong>评分:</strong> ${stock.total_score}</p>
+                <p><strong>信号类型:</strong> ${stock.signal_type}</p>
+                <p><strong>分析:</strong></p>
+                <p>${stock.comment}</p>
+            `;
+
+            modal.style.display = 'block';
+        }
+
+        // ── Modal close ──────────────────────────────────────────────────────────
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('stockModal');
+            if (event.target === modal) modal.style.display = 'none';
+        });
+
+        document.querySelector('.close').addEventListener('click', function() {
+            document.getElementById('stockModal').style.display = 'none';
+        });
+    </script>
 </body>
 </html>

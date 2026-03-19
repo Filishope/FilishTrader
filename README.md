@@ -1,5 +1,8 @@
 # AgentTrader
 
+**📊 在线看板：[https://filishope.github.io/FilishTrader/dashboard/stock_review_dashboard.html](https://filishope.github.io/FilishTrader/dashboard/stock_review_dashboard.html)**
+> 每个交易日 18:00 自动更新（GitHub Actions）
+
 一个面向 A 股的半自动选股项目：
 
 - 使用 Tushare 拉取股票日线数据

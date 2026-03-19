@@ -1,0 +1,60 @@
+name: Daily Stock Review
+
+on:
+  schedule:
+    # 每天北京时间 18:00 运行（UTC 10:00）
+    - cron: '0 10 * * 1-5'
+  # 允许手动触发
+  workflow_dispatch:
+
+jobs:
+  run-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run full pipeline
+        env:
+          TUSHARE_TOKEN: ${{ secrets.TUSHARE_TOKEN }}
+          ZENMUX_API_KEY: ${{ secrets.ZENMUX_API_KEY }}
+        run: python run_all.py
+
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages-dist
+          fetch-depth: 1
+
+      - name: Sync data and dashboard to gh-pages
+        run: |
+          # 复制最新数据
+          cp -r data gh-pages-dist/
+
+          # 同步最新的 dashboard HTML（带 bug fix）
+          cp dashboard/stock_review_dashboard.html gh-pages-dist/dashboard/stock_review_dashboard.html
+
+      - name: Commit and push to gh-pages
+        run: |
+          cd gh-pages-dist
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/ dashboard/stock_review_dashboard.html
+          # 如果没有变化就跳过 commit
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: update stock data $(date +'%Y-%m-%d')"
+          git push

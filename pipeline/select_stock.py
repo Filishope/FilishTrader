@@ -9,6 +9,7 @@ pipeline/select_stock.py
   - 返回 List[Candidate]（纯 Python 对象，不写文件）
   - 写文件由 cli.py 调用 io.py 完成
 """
+
 from __future__ import annotations
 
 import logging
@@ -18,7 +19,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-import yaml 
+import yaml
 
 from schemas import Candidate
 from Selector import B1Selector, BrickChartSelector
@@ -36,9 +37,20 @@ def _resolve_cfg_path(path_like: str | Path, base_dir: Path = _PROJECT_ROOT) -> 
     return p if p.is_absolute() else (base_dir / p)
 
 
+def load_stock_name_mapping(stocklist_path: Path) -> Dict[str, str]:
+    """Load stock symbol to name mapping from stocklist.csv."""
+    df = pd.read_csv(stocklist_path)
+    # Create mapping from symbol (6-digit code) to name
+    # Convert to list to avoid pandas type issues in dict constructor
+    symbols = df["symbol"].astype(str).str.zfill(6).tolist()
+    names = df["name"].tolist()
+    return dict(zip(symbols, names))
+
+
 # =============================================================================
 # 配置 & 数据加载
 # =============================================================================
+
 
 def load_config(config_path: Optional[str] = None) -> dict:
     """加载 rules_preselect.yaml，返回原始 dict."""
@@ -91,7 +103,8 @@ def load_raw_data(
             df = df[df["date"] <= end_ts].reset_index(drop=True)
 
         if not df.empty:
-            data[code] = df
+            # 类型断言以帮助linter识别df是DataFrame
+            data[code] = df  # type: ignore[assignment]
 
     if not data:
         raise ValueError(f"未找到任何 CSV 数据: {data_dir}")
@@ -103,6 +116,7 @@ def load_raw_data(
 # =============================================================================
 # 工具函数
 # =============================================================================
+
 
 def _sorted_zx(m1: int, m2: int, m3: int, m4: int) -> Tuple[int, int, int, int]:
     """保证均线参数从小到大排列."""
@@ -116,7 +130,12 @@ def _resolve_pick_date(
 ) -> pd.Timestamp:
     """确定选股基准日期：None → 最晚可用交易日，否则向前搜索最近日期."""
     all_dates = sorted(
-        {d for df in prepared.values() if isinstance(df.index, pd.DatetimeIndex) for d in df.index}
+        {
+            d
+            for df in prepared.values()
+            if isinstance(df.index, pd.DatetimeIndex)
+            for d in df.index
+        }
     )
     if not all_dates:
         raise ValueError("prepared 数据中没有可用日期。")
@@ -127,7 +146,9 @@ def _resolve_pick_date(
     arr = np.array(all_dates, dtype="datetime64[ns]")
     idx = int(np.searchsorted(arr, target.to_datetime64(), side="right")) - 1
     if idx < 0:
-        raise ValueError(f"pick_date={pick_date} 早于最早可用日期={all_dates[0].date()}")
+        raise ValueError(
+            f"pick_date={pick_date} 早于最早可用日期={all_dates[0].date()}"
+        )
     return all_dates[idx]
 
 
@@ -154,11 +175,13 @@ def _calc_warmup(cfg: dict, buffer: int) -> int:
 # B1 策略
 # =============================================================================
 
+
 def run_b1(
     prepared: Dict[str, pd.DataFrame],
     pick_date: pd.Timestamp,
     pool_codes: List[str],
     cfg_b1: dict,
+    name_mapping: Dict[str, str],
 ) -> List[Candidate]:
     """在流动性池内运行 B1 策略，返回 Candidate 列表.
 
@@ -171,7 +194,10 @@ def run_b1(
     selector = B1Selector(
         j_threshold=float(cfg_b1["j_threshold"]),
         j_q_threshold=float(cfg_b1["j_q_threshold"]),
-        zx_m1=zx_m1, zx_m2=zx_m2, zx_m3=zx_m3, zx_m4=zx_m4,
+        zx_m1=zx_m1,
+        zx_m2=zx_m2,
+        zx_m3=zx_m3,
+        zx_m4=zx_m4,
     )
 
     date_str = pick_date.strftime("%Y-%m-%d")
@@ -185,13 +211,16 @@ def run_b1(
             pf = selector.prepare_df(df)
             if selector.vec_picks_from_prepared(pf, start=pick_date, end=pick_date):
                 row = pf.loc[pick_date]
-                candidates.append(Candidate(
-                    code=code,
-                    date=date_str,
-                    strategy="b1",
-                    close=float(row["close"]),
-                    turnover_n=float(row["turnover_n"]),
-                ))
+                candidates.append(
+                    Candidate(
+                        code=code,
+                        name=name_mapping.get(code, ""),
+                        date=date_str,
+                        strategy="b1",
+                        close=float(row["close"]),
+                        turnover_n=float(row["turnover_n"]),
+                    )
+                )
         except Exception as exc:
             logger.debug("B1 skip %s: %s", code, exc)
 
@@ -203,11 +232,13 @@ def run_b1(
 # 砖型图策略
 # =============================================================================
 
+
 def run_brick(
     prepared: Dict[str, pd.DataFrame],
     pick_date: pd.Timestamp,
     pool_codes: List[str],
     cfg_brick: dict,
+    name_mapping: Dict[str, str],
 ) -> List[Candidate]:
     """在流动性池内运行砖型图策略，返回按 brick_growth 降序的 Candidate 列表.
 
@@ -245,23 +276,30 @@ def run_brick(
     date_str = pick_date.strftime("%Y-%m-%d")
     candidates: List[Candidate] = []
 
-    for code in pool_codes:        
-        df = prepared.get(code)        
+    for code in pool_codes:
+        df = prepared.get(code)
         if df is None or pick_date not in df.index:
             continue
         try:
             pf = selector.prepare_df(df)
             if selector.vec_picks_from_prepared(pf, start=pick_date, end=pick_date):
                 row = pf.loc[pick_date]
-                bg = float(row["brick_growth"]) if "brick_growth" in pf.columns else selector.brick_growth_on_date(pf, pick_date)
-                candidates.append(Candidate(
-                    code=code,
-                    date=date_str,
-                    strategy="brick",
-                    close=float(row["close"]),
-                    turnover_n=float(row["turnover_n"]),
-                    brick_growth=bg if np.isfinite(bg) else None,
-                ))
+                bg = (
+                    float(row["brick_growth"])
+                    if "brick_growth" in pf.columns
+                    else selector.brick_growth_on_date(pf, pick_date)
+                )
+                candidates.append(
+                    Candidate(
+                        code=code,
+                        name=name_mapping.get(code, ""),
+                        date=date_str,
+                        strategy="brick",
+                        close=float(row["close"]),
+                        turnover_n=float(row["turnover_n"]),
+                        brick_growth=bg if np.isfinite(bg) else None,
+                    )
+                )
         except Exception as exc:
             logger.debug("Brick skip %s: %s", code, exc)
 
@@ -273,6 +311,7 @@ def run_brick(
 # =============================================================================
 # 主入口
 # =============================================================================
+
 
 def run_preselect(
     *,
@@ -327,14 +366,22 @@ def run_preselect(
 
     logger.info("流动性池: %d 只", len(pool_codes))
 
+    # Load stock name mapping
+    stocklist_path = _resolve_cfg_path(g.get("stocklist", "./pipeline/stocklist.csv"))
+    name_mapping = load_stock_name_mapping(stocklist_path)
+
     # 6) 运行各策略
     all_candidates: List[Candidate] = []
 
     if cfg.get("b1", {}).get("enabled", True):
-        all_candidates.extend(run_b1(prepared, pick_ts, pool_codes, cfg["b1"]))
+        all_candidates.extend(
+            run_b1(prepared, pick_ts, pool_codes, cfg["b1"], name_mapping)
+        )
 
     if cfg.get("brick", {}).get("enabled", True):
-        all_candidates.extend(run_brick(prepared, pick_ts, pool_codes, cfg["brick"]))
+        all_candidates.extend(
+            run_brick(prepared, pick_ts, pool_codes, cfg["brick"], name_mapping)
+        )
 
     # 7) 去重（同一只保留首次命中的策略）
     seen: set = set()
