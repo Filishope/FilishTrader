@@ -5,426 +5,1438 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FilishTrader - AI选股报告</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Serif+SC:wght@400;600;700&display=swap');
+
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #111111;
+            --bg-tertiary: #181818;
+            --bg-card: #0e0e0e;
+            --border-primary: #222222;
+            --border-accent: #d4a853;
+            --border-teal: #2dd4bf;
+            --text-primary: #f0f0f0;
+            --text-secondary: #c8c8c8;
+            --text-muted: #888888;
+            --accent-gold: #d4a853;
+            --accent-gold-light: #e8c87a;
+            --accent-gold-dim: rgba(212,168,83,0.15);
+            --accent-teal: #2dd4bf;
+            --accent-teal-dim: rgba(45,212,191,0.12);
+            --accent-red: #e05555;
+            --accent-red-dim: rgba(224,85,85,0.12);
+            --accent-green: #22c55e;
+            --font-display: 'Playfair Display', 'Noto Serif SC', serif;
+            --font-mono: 'IBM Plex Mono', 'SF Mono', monospace;
+            --font-body: 'Noto Serif SC', 'PingFang SC', 'Microsoft YaHei', serif;
+            --card-radius: 6px;
+            --transition-base: 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            font-family: var(--font-body);
+            background: var(--bg-primary);
             min-height: 100vh;
-            color: #fff;
-            padding: 20px;
+            color: var(--text-primary);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
         }
-        .container { max-width: 1400px; margin: 0 auto; }
+
+        /* ── Grain overlay ── */
+        .grain-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.025;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 300 300' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+
+        .container { max-width: 1440px; margin: 0 auto; padding: 0 28px; }
+
+        /* ── Scanline animation ── */
+        @keyframes scanline {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100vh); }
+        }
+
+        /* ── Header ── */
         header {
-            text-align: center;
-            padding: 30px 0;
-            border-bottom: 2px solid rgba(255,255,255,0.1);
-            margin-bottom: 30px;
+            position: relative;
+            padding: 52px 0 36px;
+            border-bottom: 1px solid var(--border-primary);
+            margin-bottom: 36px;
+            overflow: hidden;
         }
-        h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, transparent 0%, var(--accent-gold) 35%, var(--accent-teal) 65%, transparent 100%);
+            animation: shimmer 4s ease-in-out infinite;
         }
-        .subtitle { color: rgba(255,255,255,0.6); font-size: 1.1em; }
-        .update-time { color: rgba(255,255,255,0.4); font-size: 0.9em; margin-top: 10px; }
-        .stats-grid {
+
+        @keyframes shimmer {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        header::after {
+            content: '';
+            position: absolute;
+            bottom: -1px; left: 0; right: 0; height: 40px;
+            background: linear-gradient(to bottom, transparent, var(--bg-primary));
+            pointer-events: none;
+        }
+
+        .header-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
+            grid-template-columns: 1fr auto;
+            align-items: start;
+            gap: 48px;
         }
-        .stat-card {
-            background: rgba(255,255,255,0.05);
-            border-radius: 15px;
-            padding: 25px;
-            border: 1px solid rgba(255,255,255,0.1);
-            text-align: center;
-            transition: transform 0.3s;
-        }
-        .stat-card:hover { transform: translateY(-5px); }
-        .stat-value { font-size: 2.5em; font-weight: bold; margin-bottom: 5px; }
-        .stat-value.pass { color: #00ff88; }
-        .stat-value.fail { color: #ff4757; }
-        .stat-value.pending { color: #ffa502; }
-        .stat-label { color: rgba(255,255,255,0.6); font-size: 0.95em; }
-        .section {
-            background: rgba(255,255,255,0.05);
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 25px;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        .section-title {
-            font-size: 1.5em;
-            margin-bottom: 20px;
+
+        .brand-eyebrow {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            color: var(--accent-gold);
+            margin-bottom: 14px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 14px;
+            opacity: 0;
+            animation: fadeInRight 0.7s 0.1s ease forwards;
         }
-        .section-title .icon {
-            width: 30px;
-            height: 30px;
+
+        .brand-eyebrow::before {
+            content: '';
+            width: 28px; height: 1px;
+            background: var(--accent-gold);
+            flex-shrink: 0;
+        }
+
+        h1 {
+            font-family: var(--font-display);
+            font-size: clamp(2.2rem, 5vw, 3.8rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+            opacity: 0;
+            animation: fadeInRight 0.7s 0.2s ease forwards;
+        }
+
+        h1 .terminal-indicator {
+            font-family: var(--font-mono);
+            font-size: 0.35em;
+            font-weight: 500;
+            letter-spacing: 0.12em;
+            color: var(--accent-teal);
+            vertical-align: super;
+            margin-left: 10px;
+            padding: 3px 8px;
+            border: 1px solid var(--accent-teal);
+            border-radius: 3px;
+        }
+
+        .subtitle {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            font-style: italic;
+            opacity: 0;
+            animation: fadeInRight 0.7s 0.3s ease forwards;
+        }
+
+        .meta-panel {
+            text-align: right;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--text-muted);
+            padding: 18px 22px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--card-radius);
+            opacity: 0;
+            animation: fadeInLeft 0.7s 0.3s ease forwards;
+            min-width: 220px;
+        }
+
+        .meta-panel .date-line {
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .model-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 5px 11px;
+            background: var(--accent-teal-dim);
+            border: 1px solid var(--accent-teal);
+            border-radius: 3px;
+            color: var(--accent-teal);
+            margin-top: 10px;
+            font-size: 11px;
+        }
+
+        .model-badge::before {
+            content: '';
+            width: 6px; height: 6px;
+            background: var(--accent-teal);
             border-radius: 50%;
-            background: rgba(0,212,255,0.2);
+            flex-shrink: 0;
+            animation: pulse 2.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.8); }
+        }
+
+        /* ── AI Info ── */
+        .ai-info {
+            background: var(--bg-secondary);
+            border-left: 3px solid var(--accent-gold);
+            padding: 18px 24px;
+            margin-bottom: 36px;
+            font-size: 0.93rem;
+            color: var(--text-secondary);
+            border-radius: 0 var(--card-radius) var(--card-radius) 0;
+            opacity: 0;
+            animation: fadeInUp 0.6s 0.5s ease forwards;
+        }
+
+        .ai-info strong { color: var(--accent-gold); }
+
+        /* ── Stats Bar ── */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1px;
+            background: var(--border-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--card-radius);
+            margin-bottom: 44px;
+            overflow: hidden;
+            opacity: 0;
+            animation: fadeInUp 0.6s 0.6s ease forwards;
+        }
+
+        .stat-item {
+            background: var(--bg-secondary);
+            padding: 30px 20px;
+            text-align: center;
+            position: relative;
+            transition: background var(--transition-base);
+            cursor: default;
+        }
+
+        .stat-item::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 20%; right: 20%;
+            height: 2px;
+            background: transparent;
+            transition: background var(--transition-base), left var(--transition-base), right var(--transition-base);
+            border-radius: 2px;
+        }
+
+        .stat-item:hover { background: var(--bg-tertiary); }
+        .stat-item:hover::after {
+            background: var(--accent-gold);
+            left: 10%; right: 10%;
+        }
+
+        .stat-value {
+            font-family: var(--font-display);
+            font-size: 2.9rem;
+            font-weight: 700;
+            line-height: 1;
+            margin-bottom: 10px;
+            transition: transform var(--transition-base);
+        }
+
+        .stat-item:hover .stat-value { transform: translateY(-2px); }
+
+        .stat-value.gold { color: var(--accent-gold); }
+        .stat-value.teal { color: var(--accent-teal); }
+        .stat-value.red { color: var(--accent-red); }
+        .stat-value.white { color: var(--text-primary); }
+
+        .stat-label {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: #aaaaaa;
+        }
+
+        /* ── Section ── */
+        .section { margin-bottom: 52px; }
+
+        .section-header {
+            display: flex;
+            align-items: baseline;
+            gap: 16px;
+            margin-bottom: 28px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-primary);
+            position: relative;
+        }
+
+        .section-header::after {
+            content: '';
+            position: absolute;
+            bottom: -1px; left: 0;
+            width: 60px; height: 2px;
+            background: var(--accent-gold);
+            border-radius: 2px;
+        }
+
+        .excluded-section .section-header::after {
+            background: var(--accent-red);
+        }
+
+        .section-number {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--accent-gold);
+            letter-spacing: 0.12em;
+        }
+
+        .excluded-section .section-number { color: var(--accent-red); }
+
+        .section-title {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .section-subtitle {
+            font-family: var(--font-body);
+            font-size: 0.88rem;
+            color: #999999;
+            margin-left: auto;
+            font-style: italic;
+        }
+
+        /* ── Stock Cards ── */
+        .stock-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 22px;
+        }
+
+        /* Animation keyframes */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInRight {
+            from { opacity: 0; transform: translateX(-16px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes fadeInLeft {
+            from { opacity: 0; transform: translateX(16px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.94) translateY(12px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .stock-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--card-radius);
+            overflow: hidden;
+            cursor: pointer;
+            position: relative;
+            opacity: 0;
+            animation: scaleIn 0.55s ease forwards;
+            will-change: transform, box-shadow;
+            transition: border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
+        }
+
+        .stock-card:nth-child(1) { animation-delay: 0.08s; }
+        .stock-card:nth-child(2) { animation-delay: 0.14s; }
+        .stock-card:nth-child(3) { animation-delay: 0.20s; }
+        .stock-card:nth-child(4) { animation-delay: 0.26s; }
+        .stock-card:nth-child(5) { animation-delay: 0.32s; }
+        .stock-card:nth-child(6) { animation-delay: 0.38s; }
+        .stock-card:nth-child(7) { animation-delay: 0.44s; }
+        .stock-card:nth-child(8) { animation-delay: 0.50s; }
+        .stock-card:nth-child(n+9) { animation-delay: 0.55s; }
+
+        .stock-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent-gold), var(--accent-teal));
+            opacity: 0;
+            transition: opacity var(--transition-base);
+        }
+
+        .stock-card:hover {
+            border-color: rgba(212,168,83,0.4);
+            box-shadow: 0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(212,168,83,0.1);
+            transform: translateY(-5px);
+        }
+
+        .stock-card:hover::before { opacity: 1; }
+
+        /* Card K-line image */
+        .card-kline {
+            width: 100%;
+            background: #050505;
+            position: relative;
+            border-bottom: 1px solid var(--border-primary);
+            line-height: 0;
+            min-height: 120px;
+        }
+
+        .card-kline img {
+            width: 100%;
+            height: auto;
+            display: block;
+            transition: transform 0.5s ease, opacity 0.3s ease;
+            opacity: 0;
+        }
+
+        .card-kline img.loaded { opacity: 1; }
+
+        .stock-card:hover .card-kline img { transform: scale(1.02); }
+
+        .card-kline-placeholder {
+            position: absolute;
+            inset: 0;
+            min-height: 120px;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            letter-spacing: 0.15em;
+            color: var(--text-muted);
+            text-transform: uppercase;
         }
-        .stock-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-            gap: 15px;
+
+        /* Card body */
+        .card-body { padding: 20px 22px 22px; }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 14px;
         }
-        .stock-card {
-            background: rgba(0,0,0,0.2);
-            border-radius: 12px;
-            padding: 20px;
-            border-left: 4px solid #00ff88;
-            transition: all 0.3s;
-            cursor: pointer;
+
+        .rank-badge {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            color: var(--accent-gold);
+            padding: 4px 10px;
+            border: 1px solid rgba(212,168,83,0.4);
+            border-radius: 3px;
+            background: var(--accent-gold-dim);
         }
-        .stock-card:hover {
-            background: rgba(255,255,255,0.1);
-            transform: translateX(5px);
+
+        .score-display {
+            font-family: var(--font-mono);
+            font-size: 2.1rem;
+            font-weight: 600;
+            color: var(--accent-teal);
+            line-height: 1;
+            transition: color var(--transition-base);
         }
-        .stock-header {
+
+        .stock-card:hover .score-display { color: var(--accent-gold-light); }
+
+        .stock-identity { margin-bottom: 14px; }
+
+        .stock-code {
+            font-family: var(--font-mono);
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: 0.06em;
+            margin-bottom: 4px;
+        }
+
+        .stock-name {
+            font-size: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .signal-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--accent-gold);
+            padding: 5px 12px;
+            background: var(--accent-gold-dim);
+            border: 1px solid rgba(212,168,83,0.3);
+            border-radius: 3px;
+            margin-bottom: 14px;
+        }
+
+        .signal-tag::before {
+            content: '';
+            width: 5px; height: 5px;
+            background: var(--accent-gold);
+            border-radius: 50%;
+            flex-shrink: 0;
+            animation: pulse 2.5s ease-in-out infinite;
+        }
+
+        .stock-comment {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.75;
+            padding-top: 14px;
+            border-top: 1px solid var(--border-primary);
+        }
+
+        .card-hint {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 14px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--text-muted);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            transition: color var(--transition-base);
+        }
+
+        .card-hint::before {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border-primary);
+        }
+
+        .stock-card:hover .card-hint { color: var(--accent-gold); }
+
+        /* ── Excluded Section ── */
+        .excluded-table-container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--card-radius);
+            overflow: hidden;
+        }
+
+        .excluded-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .excluded-table th {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            padding: 16px 20px;
+            text-align: left;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-primary);
+            font-weight: 500;
+        }
+
+        .excluded-table th:nth-child(3) { text-align: left; }
+
+        .excluded-table td {
+            font-family: var(--font-mono);
+            font-size: 0.88rem;
+            padding: 14px 20px;
+            border-bottom: 1px solid rgba(34,34,34,0.8);
+            color: var(--text-secondary);
+            transition: color var(--transition-base), background var(--transition-base);
+            vertical-align: top;
+        }
+
+        .excluded-table td:nth-child(3) {
+            font-family: var(--font-body);
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        .excluded-table tr:last-child td { border-bottom: none; }
+
+        .excluded-table tr {
+            opacity: 0;
+            animation: fadeInUp 0.4s ease forwards;
+        }
+
+        .excluded-table tr:nth-child(1) { animation-delay: 0.05s; }
+        .excluded-table tr:nth-child(2) { animation-delay: 0.08s; }
+        .excluded-table tr:nth-child(3) { animation-delay: 0.11s; }
+        .excluded-table tr:nth-child(4) { animation-delay: 0.14s; }
+        .excluded-table tr:nth-child(5) { animation-delay: 0.17s; }
+        .excluded-table tr:nth-child(6) { animation-delay: 0.20s; }
+        .excluded-table tr:nth-child(7) { animation-delay: 0.23s; }
+        .excluded-table tr:nth-child(8) { animation-delay: 0.26s; }
+        .excluded-table tr:nth-child(n+9) { animation-delay: 0.29s; }
+
+        .excluded-table tr:hover td {
+            background: rgba(224,85,85,0.04);
+            color: rgba(240,240,240,0.75);
+        }
+
+        .excluded-table tr:hover td:nth-child(3) { color: var(--text-secondary); }
+
+        .excluded-code {
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .excluded-reason-loading {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--text-muted);
+            letter-spacing: 0.1em;
+            animation: blink 1.2s step-end infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .excluded-status {
+            display: inline-block;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--accent-red);
+            padding: 3px 8px;
+            border: 1px solid rgba(224,85,85,0.3);
+            border-radius: 3px;
+            background: var(--accent-red-dim);
+            white-space: nowrap;
+        }
+
+        /* ── Footer ── */
+        footer {
+            text-align: center;
+            padding: 52px 0;
+            border-top: 1px solid var(--border-primary);
+            margin-top: 64px;
+        }
+
+        .footer-brand {
+            font-family: var(--font-display);
+            font-size: 1.15rem;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+        }
+
+        .footer-meta {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 0.06em;
+        }
+
+        .footer-links {
+            margin-top: 18px;
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .footer-links a {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--accent-teal);
+            text-decoration: none;
+            padding: 6px 14px;
+            border: 1px solid var(--accent-teal);
+            border-radius: 3px;
+            transition: all var(--transition-base);
+        }
+
+        .footer-links a:hover {
+            background: var(--accent-teal);
+            color: var(--bg-primary);
+        }
+
+        /* ── Modal ── */
+        .modal {
+            position: fixed;
+            z-index: 2000;
+            inset: 0;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.88);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            display: none;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 40px 20px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--card-radius);
+            width: 100%;
+            max-width: 780px;
+            position: relative;
+            transform: scale(0.94) translateY(24px);
+            transition: transform 0.35s cubic-bezier(0.34, 1.2, 0.64, 1), opacity 0.3s ease;
+            opacity: 0;
+            overflow: hidden;
+            margin: auto;
+        }
+
+        .modal.active .modal-content {
+            transform: scale(1) translateY(0);
+            opacity: 1;
+        }
+
+        .modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
-        }
-        .stock-code {
-            font-size: 1.4em;
-            font-weight: bold;
-            letter-spacing: 1px;
-        }
-        .stock-name {
-            color: rgba(255,255,255,0.6);
-            font-size: 0.9em;
-            margin-left: 5px;
-        }
-        .stock-score {
-            font-size: 1.8em;
-            font-weight: bold;
-            color: #00ff88;
-        }
-        .stock-meta {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 10px;
-            font-size: 0.85em;
-        }
-        .tag {
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 0.75em;
-            font-weight: 500;
-        }
-        .tag.trend-start { background: rgba(0,255,136,0.3); color: #00ff88; }
-        .tag.pass { background: rgba(0,212,255,0.3); color: #00d4ff; }
-        .rank-badge {
-            display: inline-block;
-            width: 28px;
-            height: 28px;
-            line-height: 28px;
-            text-align: center;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #ffd700, #ffaa00);
-            color: #000;
-            font-weight: bold;
-            font-size: 0.85em;
-            margin-right: 8px;
-        }
-        .stock-comment {
-            color: rgba(255,255,255,0.8);
-            font-size: 0.9em;
-            line-height: 1.6;
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid rgba(255,255,255,0.1);
-        }
-        .excluded-section {
-            background: rgba(255,71,87,0.05);
-            border: 1px solid rgba(255,71,87,0.2);
-        }
-        .excluded-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-        .excluded-item {
-            background: rgba(255,71,87,0.1);
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            color: #ff6b81;
-        }
-        .ai-info {
-            background: rgba(0,212,255,0.1);
-            border: 1px solid rgba(0,212,255,0.3);
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 20px;
-            font-size: 0.9em;
-            color: rgba(255,255,255,0.8);
-        }
-        .footer {
-            text-align: center;
-            padding: 30px;
-            color: rgba(255,255,255,0.4);
-            border-top: 1px solid rgba(255,255,255,0.1);
-            margin-top: 30px;
-        }
-        .footer a { color: #00d4ff; text-decoration: none; }
-        @media (max-width: 768px) {
-            .stock-grid { grid-template-columns: 1fr; }
-            .stats-grid { grid-template-columns: repeat(2, 1fr); }
-        }
-        /* Modal styles */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
+            padding: 22px 28px;
+            border-bottom: 1px solid var(--border-primary);
+            background: var(--bg-tertiary);
+            position: sticky;
             top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0,0,0,0.8);
+            z-index: 10;
         }
-        .modal-content {
-            background-color: #1a1a2e;
-            margin: 5% auto;
-            padding: 20px;
-            border: 1px solid #00d4ff;
-            width: 90%;
-            max-width: 500px;
-            border-radius: 12px;
-            position: relative;
+
+        .modal-title {
+            font-family: var(--font-display);
+            font-size: 1.35rem;
+            font-weight: 600;
         }
-        .close {
-            color: #fff;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
+
+        .modal-title .code {
+            font-family: var(--font-mono);
+            font-size: 0.65em;
+            color: var(--accent-gold);
+            margin-left: 12px;
+            padding: 4px 10px;
+            border: 1px solid rgba(212,168,83,0.5);
+            border-radius: 3px;
+            background: var(--accent-gold-dim);
         }
-        .close:hover,
-        .close:focus {
-            color: #00d4ff;
-            text-decoration: none;
+
+        .modal-close {
+            font-family: var(--font-mono);
+            font-size: 18px;
+            color: var(--text-muted);
+            background: none;
+            border: 1px solid transparent;
+            border-radius: 4px;
             cursor: pointer;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition-base);
+            flex-shrink: 0;
         }
+
+        .modal-close:hover {
+            color: var(--accent-gold);
+            border-color: rgba(212,168,83,0.5);
+            background: var(--accent-gold-dim);
+        }
+
+        .modal-image-container {
+            padding: 0;
+            background: #050505;
+            border-bottom: 1px solid var(--border-primary);
+            overflow: hidden;
+        }
+
         .modal-image {
             width: 100%;
-            border-radius: 8px;
-            margin: 15px 0;
+            display: block;
+            transition: opacity 0.3s ease;
         }
-        .modal-details {
-            color: #ccc;
-            line-height: 1.6;
+
+        .modal-image[src=""] { display: none; }
+
+        .modal-details { padding: 28px; }
+
+        /* Summary stats row */
+        .detail-summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1px;
+            background: var(--border-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+
+        .detail-stat {
+            background: var(--bg-tertiary);
+            padding: 18px 16px;
+            text-align: center;
+        }
+
+        .detail-stat-label {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .detail-stat-value {
+            font-family: var(--font-display);
+            font-size: 1.6rem;
+            font-weight: 600;
+        }
+
+        .detail-stat-value.score { color: var(--accent-teal); }
+        .detail-stat-value.rank { color: var(--text-primary); }
+        .detail-stat-value.signal { color: var(--accent-gold); font-size: 1rem; font-family: var(--font-mono); }
+
+        /* Score breakdown */
+        .score-breakdown {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-primary);
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .score-breakdown-title {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--accent-gold);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .score-breakdown-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border-primary);
+        }
+
+        .score-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 10px;
+        }
+
+        .score-row:last-child { margin-bottom: 0; }
+
+        .score-row-label {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-muted);
+            width: 120px;
+            flex-shrink: 0;
+        }
+
+        .score-bar-wrap {
+            flex: 1;
+            height: 4px;
+            background: var(--border-primary);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .score-bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            background: linear-gradient(90deg, var(--accent-teal), var(--accent-gold));
+            transform-origin: left;
+            animation: barGrow 0.7s ease forwards;
+            transform: scaleX(0);
+        }
+
+        @keyframes barGrow {
+            to { transform: scaleX(1); }
+        }
+
+        .score-row-value {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--text-primary);
+            width: 24px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        /* Reasoning sections */
+        .reasoning-section {
+            margin-bottom: 20px;
+        }
+
+        .reasoning-title {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--accent-gold);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .reasoning-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border-primary);
+        }
+
+        .reasoning-text {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.8;
+        }
+
+        .verdict-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            padding: 8px 16px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .verdict-badge.pass {
+            color: var(--accent-teal);
+            background: var(--accent-teal-dim);
+            border: 1px solid var(--accent-teal);
+        }
+
+        .verdict-badge.fail {
+            color: var(--accent-red);
+            background: var(--accent-red-dim);
+            border: 1px solid rgba(224,85,85,0.4);
+        }
+
+        .verdict-badge::before {
+            content: '';
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        /* ── Loading / Error ── */
+        .loading {
+            text-align: center;
+            padding: 64px 20px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            font-size: 12px;
+            letter-spacing: 0.12em;
+            grid-column: 1 / -1;
+        }
+
+        .error-message {
+            background: var(--accent-red-dim);
+            border: 1px solid rgba(224,85,85,0.3);
+            padding: 24px;
+            border-radius: var(--card-radius);
+            color: var(--accent-red);
+            font-family: var(--font-mono);
+            font-size: 12px;
+            text-align: center;
+            grid-column: 1 / -1;
+        }
+
+        /* ── Mobile ── */
+        @media (max-width: 1024px) {
+            .stats-bar { grid-template-columns: repeat(2, 1fr); }
+            .stock-grid { grid-template-columns: 1fr; }
+            .header-grid { grid-template-columns: 1fr; gap: 24px; }
+            .meta-panel { text-align: left; min-width: unset; }
+            .section-subtitle { margin-left: 0; width: 100%; margin-top: 6px; }
+            .section-header { flex-wrap: wrap; }
+        }
+
+        @media (max-width: 640px) {
+            .container { padding: 0 16px; }
+            header { padding: 32px 0 24px; }
+            .stats-bar { grid-template-columns: repeat(2, 1fr); }
+            .stat-item { padding: 22px 16px; }
+            .stat-value { font-size: 2.3rem; }
+            .card-kline { height: 130px; }
+            .card-body { padding: 16px 18px 18px; }
+            .detail-summary { grid-template-columns: 1fr; }
+            .modal-details { padding: 20px; }
+            .modal-header { padding: 18px 20px; }
+            .excluded-table th,
+            .excluded-table td { padding: 12px 14px; font-size: 0.82rem; }
+            .excluded-table th:nth-child(3),
+            .excluded-table td:nth-child(3) { display: none; }
+            .score-row-label { width: 90px; font-size: 10px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
         }
     </style>
 </head>
 <body>
+    <div class="grain-overlay"></div>
+
     <div class="container">
         <header>
-            <h1>📈 FilishTrader</h1>
-            <div class="subtitle" id="pageSubtitle">AI 驱动的 A 股选股系统</div>
-            <div class="update-time" id="pageUpdateTime">选股日期: 加载中... | 生成时间: -- | 模型: Gemini-3.1-Pro</div>
+            <div class="header-grid">
+                <div class="brand-section">
+                    <div class="brand-eyebrow">AI-Powered A-Share Analysis</div>
+                    <h1>FilishTrader <span class="terminal-indicator">TERM</span></h1>
+                    <div class="subtitle">A股智能选股报告系统</div>
+                </div>
+                <div class="meta-panel">
+                    <div class="date-line" id="pageUpdateTime">选股日期: 加载中...</div>
+                    <div>生成时间: <span id="genTime">--</span></div>
+                    <div class="model-badge">Gemini-3.1-Pro</div>
+                </div>
+            </div>
         </header>
 
         <div class="ai-info">
-            <strong>🤖 AI 分析说明：</strong>本报告基于 Google Gemini-3.1-Pro 模型对 K 线图的真实分析，从趋势结构、价格位置、量能行为、前期异动四个维度评分（满分5分）。评分≥4.0为推荐买入。
+            <strong>AI 分析说明：</strong>本报告基于 Google Gemini-3.1-Pro 模型对 K 线图的真实分析，从趋势结构、价格位置、量能行为、前期异动四个维度评分（满分5分）。评分≥4.0为推荐买入。
         </div>
 
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-value pending" id="candidatesCount">--</div>
+        <div class="stats-bar">
+            <div class="stat-item">
+                <div class="stat-value white" id="candidatesCount">--</div>
                 <div class="stat-label">候选股票</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-value pass" id="passCount">--</div>
-                <div class="stat-label">AI推荐买入</div>
+            <div class="stat-item">
+                <div class="stat-value gold" id="passCount">--</div>
+                <div class="stat-label">AI 推荐买入</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-value fail" id="failCount">--</div>
+            <div class="stat-item">
+                <div class="stat-value red" id="failCount">--</div>
                 <div class="stat-label">风险排除</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-value" id="thresholdValue">--</div>
+            <div class="stat-item">
+                <div class="stat-value teal" id="thresholdValue">--</div>
                 <div class="stat-label">评分门槛</div>
             </div>
         </div>
 
         <div class="section">
-            <div class="section-title">
-                <div class="icon">🏆</div>
-                <span>AI 推荐买入 (评分≥4.0)</span>
+            <div class="section-header">
+                <span class="section-number">01</span>
+                <h2 class="section-title">AI 推荐买入</h2>
+                <span class="section-subtitle">评分 ≥ 4.0 的优质标的</span>
             </div>
             <div class="stock-grid" id="recommendedStocks">
-                <!-- Stock cards will be injected here by JavaScript -->
+                <div class="loading">正在加载数据</div>
             </div>
         </div>
 
         <div class="section excluded-section">
-            <div class="section-title">
-                <div class="icon">⚠️</div>
-                <span>风险排除 (评分&lt;4.0 或存在出货/高位风险)</span>
+            <div class="section-header">
+                <span class="section-number">02</span>
+                <h2 class="section-title">风险排除</h2>
+                <span class="section-subtitle">评分低于门槛或存在出货/高位风险</span>
             </div>
-            <div class="excluded-grid" id="excludedList">
-                <!-- Excluded items will be injected here -->
+            <div class="excluded-table-container">
+                <table class="excluded-table" id="excludedTable">
+                    <thead>
+                        <tr>
+                            <th>股票代码</th>
+                            <th>股票名称</th>
+                            <th>AI 排除原因</th>
+                        </tr>
+                    </thead>
+                    <tbody id="excludedList">
+                    </tbody>
+                </table>
             </div>
         </div>
 
-        <div class="footer">
-            <p>FilishTrader AI 选股系统 | 策略: B1 量化初选 + Gemini AI 图表复评</p>
-            <p>模型: google/gemini-3.1-pro-preview via ZenMux API</p>
-            <p style="margin-top: 10px;">
-                <a href="https://github.com/Filishope/FilishTrader" target="_blank">GitHub</a> | 
-                <a href="#" onclick="alert('每日 18:20 自动运行')">定时任务</a>
-            </p>
-        </div>
+        <footer>
+            <div class="footer-brand">FilishTrader AI 选股系统</div>
+            <div class="footer-meta">策略: B1 量化初选 + Gemini AI 图表复评</div>
+            <div class="footer-links">
+                <a href="https://github.com/Filishope/FilishTrader" target="_blank">GitHub</a>
+                <a href="#" onclick="alert('每日 18:20 自动运行'); return false;">定时任务</a>
+            </div>
+        </footer>
     </div>
 
-    <!-- Modal for stock details -->
+    <!-- Modal -->
     <div id="stockModal" class="modal">
         <div class="modal-content">
-            <span class="close">&times;</span>
-            <img class="modal-image" id="modalImage" src="" alt="Stock chart">
+            <div class="modal-header">
+                <div class="modal-title" id="modalTitle">股票详情</div>
+                <button class="modal-close" onclick="closeModal()" aria-label="关闭">&times;</button>
+            </div>
+            <div class="modal-image-container">
+                <img class="modal-image" id="modalImage" src="" alt="K线图">
+            </div>
             <div class="modal-details" id="modalDetails"></div>
         </div>
     </div>
 
     <script>
-        // Global state — accessible by all functions
+        // ── Global state ──────────────────────────────────────────────────────────
         let stockNames = {};
         let currentPickDate = null;
+        // Cache individual stock JSON data (keyed by code) for modal use
+        let stockDetailCache = {};
 
-        // ── Entry point ──────────────────────────────────────────────────────────
+        // ── Entry point ───────────────────────────────────────────────────────────
         document.addEventListener('DOMContentLoaded', async function() {
             await loadDashboard();
         });
 
         async function loadDashboard() {
             try {
-                // 1. Load latest candidate list to get the date + stock names
+                // 1. Load candidates to get date + stock names
                 const candidatesResp = await fetch('../data/candidates/candidates_latest.json');
                 if (!candidatesResp.ok) throw new Error('Failed to load candidates');
                 const candidatesData = await candidatesResp.json();
 
-                currentPickDate = candidatesData.pick_date; // e.g., "2026-03-19"
+                currentPickDate = candidatesData.pick_date;
 
-                // Build name lookup map
                 stockNames = {};
                 (candidatesData.candidates || []).forEach(c => {
                     if (c.code) stockNames[c.code] = c.name || '';
                 });
 
-                // Update page header
                 document.title = `FilishTrader - ${currentPickDate} AI选股报告`;
-                document.getElementById('pageUpdateTime').innerHTML =
-                    `选股日期: ${currentPickDate} | 生成时间: ${new Date().toLocaleString('zh-CN')} | 模型: Gemini-3.1-Pro`;
-
-                // Update candidates count
+                document.getElementById('pageUpdateTime').textContent = `选股日期: ${currentPickDate}`;
+                document.getElementById('genTime').textContent = new Date().toLocaleString('zh-CN', {
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit'
+                });
                 document.getElementById('candidatesCount').textContent =
                     candidatesData.total ?? candidatesData.candidates?.length ?? 0;
 
-                // 2. Load suggestion data for that date
+                // 2. Load suggestion
                 const suggestionResp = await fetch(`../data/review/${currentPickDate}/suggestion.json`);
                 if (!suggestionResp.ok) throw new Error(`Failed to load suggestion for ${currentPickDate}`);
                 const suggestionData = await suggestionResp.json();
 
-                // Update stats (Bug 1 fixed: textContent, not textColor)
                 document.getElementById('passCount').textContent = suggestionData.recommendations?.length ?? 0;
                 document.getElementById('failCount').textContent = suggestionData.excluded?.length ?? 0;
                 document.getElementById('thresholdValue').textContent = suggestionData.min_score_threshold ?? '--';
 
-                // 3. Build recommended stock cards
-                const stockGrid = document.getElementById('recommendedStocks');
-                stockGrid.innerHTML = '';
+                // 3. Render recommended cards
+                renderRecommended(suggestionData.recommendations || []);
 
-                (suggestionData.recommendations || []).forEach(stock => {
-                    const card = document.createElement('div');
-                    card.className = 'stock-card';
-
-                    card.innerHTML = `
-                        <div class="stock-header">
-                            <div>
-                                <span class="rank-badge">${stock.rank}</span>
-                                <span class="stock-code">${stock.code}</span>
-                                <span class="stock-name">${getStockName(stock.code)}</span>
-                            </div>
-                            <div class="stock-score">${stock.total_score}</div>
-                        </div>
-                        <div class="stock-meta">
-                            <span class="tag trend-start">${stock.signal_type}</span>
-                            <span class="tag pass">PASS</span>
-                        </div>
-                        <div class="stock-comment">${stock.comment}</div>
-                    `;
-
-                    card.addEventListener('click', () => showStockDetail(stock));
-                    stockGrid.appendChild(card);
-                });
-
-                // 4. Build excluded list
-                const excludedGrid = document.getElementById('excludedList');
-                excludedGrid.innerHTML = '';
-
-                (suggestionData.excluded || []).forEach(code => {
-                    const item = document.createElement('div');
-                    item.className = 'excluded-item';
-                    const name = getStockName(code);
-                    item.textContent = `${code}${name && name !== code ? ' ' + name : ''} (未达标)`;
-                    excludedGrid.appendChild(item);
-                });
+                // 4. Render excluded table (with lazy JSON loading for reasons)
+                renderExcluded(suggestionData.excluded || []);
 
             } catch (error) {
-                console.error('Error loading dashboard data:', error);
-                document.getElementById('pageUpdateTime').textContent = `数据加载失败: ${error.message}`;
+                console.error('Dashboard load error:', error);
+                document.getElementById('recommendedStocks').innerHTML =
+                    `<div class="error-message">数据加载失败: ${error.message}</div>`;
             }
         }
 
-        // ── Helpers ──────────────────────────────────────────────────────────────
-        function getStockName(code) {
-            return stockNames[code] || code;
+        // ── Render recommended cards ──────────────────────────────────────────────
+        function renderRecommended(recommendations) {
+            const grid = document.getElementById('recommendedStocks');
+            grid.innerHTML = '';
+
+            if (recommendations.length === 0) {
+                grid.innerHTML = '<div class="loading">暂无推荐标的</div>';
+                return;
+            }
+
+            recommendations.forEach(stock => {
+                const card = document.createElement('div');
+                card.className = 'stock-card';
+
+                const imgPath = `../data/kline/${stock.date || currentPickDate}/${stock.code}_day.jpg`;
+                const signalLabel = formatSignalType(stock.signal_type);
+
+                card.innerHTML = `
+                    <div class="card-kline">
+                        <div class="card-kline-placeholder">K线图加载中</div>
+                        <img src="" alt="${stock.code} K线图" loading="lazy">
+                    </div>
+                    <div class="card-body">
+                        <div class="card-header">
+                            <span class="rank-badge">RANK ${stock.rank}</span>
+                            <span class="score-display">${stock.total_score}</span>
+                        </div>
+                        <div class="stock-identity">
+                            <div class="stock-code">${stock.code}</div>
+                            <div class="stock-name">${getStockName(stock.code)}</div>
+                        </div>
+                        <div class="signal-tag">${signalLabel}</div>
+                        <div class="stock-comment">${stock.comment || '暂无分析'}</div>
+                        <div class="card-hint">点击查看详情</div>
+                    </div>
+                `;
+
+                // Lazy load K-line image
+                const img = card.querySelector('.card-kline img');
+                const placeholder = card.querySelector('.card-kline-placeholder');
+                img.onload = function() {
+                    this.classList.add('loaded');
+                    placeholder.style.display = 'none';
+                };
+                img.onerror = function() {
+                    this.style.display = 'none';
+                    placeholder.textContent = '暂无图表';
+                };
+                img.src = imgPath;
+
+                card.addEventListener('click', () => showStockDetail(stock));
+                grid.appendChild(card);
+            });
         }
 
+        // ── Render excluded table ─────────────────────────────────────────────────
+        function renderExcluded(excludedCodes) {
+            const tbody = document.getElementById('excludedList');
+            tbody.innerHTML = '';
+
+            excludedCodes.forEach(code => {
+                const row = document.createElement('tr');
+                const name = getStockName(code);
+
+                row.innerHTML = `
+                    <td><span class="excluded-code">${code}</span></td>
+                    <td>${name && name !== code ? name : '--'}</td>
+                    <td><span class="excluded-reason-loading" id="reason-${code}">加载中...</span></td>
+                `;
+                tbody.appendChild(row);
+
+                // Async load individual stock JSON for reason
+                fetchStockReason(code);
+            });
+        }
+
+        async function fetchStockReason(code) {
+            try {
+                const resp = await fetch(`../data/review/${currentPickDate}/${code}.json`);
+                if (!resp.ok) {
+                    setExcludedReason(code, '评分未达门槛');
+                    return;
+                }
+                const data = await resp.json();
+                stockDetailCache[code] = data;
+                const reason = data.comment || '评分未达标准';
+                setExcludedReason(code, reason);
+            } catch {
+                setExcludedReason(code, '评分未达门槛');
+            }
+        }
+
+        function setExcludedReason(code, text) {
+            const el = document.getElementById(`reason-${code}`);
+            if (!el) return;
+            el.className = '';
+            el.style.fontFamily = 'var(--font-body)';
+            el.style.fontSize = '0.85rem';
+            el.style.color = 'var(--text-muted)';
+            el.style.lineHeight = '1.6';
+            el.textContent = text;
+        }
+
+        // ── Show stock detail modal ───────────────────────────────────────────────
         function showStockDetail(stock) {
             const modal = document.getElementById('stockModal');
             const modalImage = document.getElementById('modalImage');
             const modalDetails = document.getElementById('modalDetails');
+            const modalTitle = document.getElementById('modalTitle');
 
-            // Bug 2 fixed: use module-level currentPickDate instead of undefined local
             const imgPath = `../data/kline/${stock.date || currentPickDate}/${stock.code}_day.jpg`;
 
+            // Title
+            modalTitle.innerHTML = `${getStockName(stock.code)} <span class="code">${stock.code}</span>`;
+
+            // Image
             modalImage.style.display = 'block';
-            modalImage.onerror = function() {
-                this.style.display = 'none';
-            };
+            modalImage.style.opacity = '0';
+            modalImage.onerror = function() { this.style.display = 'none'; };
+            modalImage.onload = function() { this.style.opacity = '1'; };
             modalImage.src = imgPath;
 
-            modalDetails.innerHTML = `
-                <h2 style="color:#00d4ff;margin-top:0;">${getStockName(stock.code)} (${stock.code})</h2>
-                <p><strong>评分:</strong> ${stock.total_score}</p>
-                <p><strong>信号类型:</strong> ${stock.signal_type}</p>
-                <p><strong>分析:</strong></p>
-                <p>${stock.comment}</p>
-            `;
+            // Render detail content (may get enriched after cache load)
+            renderModalDetails(stock, modalDetails);
 
-            modal.style.display = 'block';
+            // If we have cached detail data, render immediately
+            if (stockDetailCache[stock.code]) {
+                renderModalDetails(stock, modalDetails, stockDetailCache[stock.code]);
+            } else {
+                // Try to load if not yet cached
+                fetch(`../data/review/${currentPickDate}/${stock.code}.json`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => {
+                        if (data) {
+                            stockDetailCache[stock.code] = data;
+                            renderModalDetails(stock, modalDetails, data);
+                        }
+                    })
+                    .catch(() => {});
+            }
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
         }
 
-        // ── Modal close ──────────────────────────────────────────────────────────
-        window.addEventListener('click', function(event) {
+        function renderModalDetails(stock, container, detailData) {
+            const signalLabel = formatSignalType(stock.signal_type);
+            const scores = detailData?.scores || {};
+            const scoreDimensions = [
+                { key: 'trend_structure', label: '趋势结构', max: 5 },
+                { key: 'price_position', label: '价格位置', max: 5 },
+                { key: 'volume_behavior', label: '量能行为', max: 5 },
+                { key: 'previous_abnormal_move', label: '前期异动', max: 5 },
+            ];
+
+            const reasoningFields = [
+                { key: 'trend_reasoning', title: '趋势分析' },
+                { key: 'position_reasoning', title: '位置分析' },
+                { key: 'volume_reasoning', title: '量能分析' },
+                { key: 'abnormal_move_reasoning', title: '前期异动分析' },
+                { key: 'signal_reasoning', title: '信号综合判断' },
+            ];
+
+            const hasScores = Object.keys(scores).length > 0;
+            const hasReasoning = detailData && reasoningFields.some(f => detailData[f.key]);
+
+            let html = `
+                <div class="verdict-badge pass">
+                    PASS · AI 推荐买入
+                </div>
+                <div class="detail-summary">
+                    <div class="detail-stat">
+                        <div class="detail-stat-label">综合评分</div>
+                        <div class="detail-stat-value score">${stock.total_score}</div>
+                    </div>
+                    <div class="detail-stat">
+                        <div class="detail-stat-label">排名</div>
+                        <div class="detail-stat-value rank">#${stock.rank}</div>
+                    </div>
+                    <div class="detail-stat">
+                        <div class="detail-stat-label">信号类型</div>
+                        <div class="detail-stat-value signal">${signalLabel}</div>
+                    </div>
+                </div>
+            `;
+
+            if (hasScores) {
+                html += `<div class="score-breakdown">
+                    <div class="score-breakdown-title">维度评分明细</div>`;
+                scoreDimensions.forEach((dim, i) => {
+                    const val = scores[dim.key] ?? '--';
+                    const pct = (val !== '--' && dim.max) ? (val / dim.max) : 0;
+                    const delay = (i * 0.12 + 0.1).toFixed(2);
+                    html += `
+                        <div class="score-row">
+                            <span class="score-row-label">${dim.label}</span>
+                            <div class="score-bar-wrap">
+                                <div class="score-bar-fill" style="width:${pct*100}%; animation-delay:${delay}s"></div>
+                            </div>
+                            <span class="score-row-value">${val}</span>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            }
+
+            // Main comment
+            html += `<div class="reasoning-section">
+                <div class="reasoning-title">AI 综合分析</div>
+                <div class="reasoning-text">${stock.comment || '暂无分析'}</div>
+            </div>`;
+
+            if (hasReasoning) {
+                reasoningFields.forEach(f => {
+                    const text = detailData[f.key];
+                    if (!text) return;
+                    html += `<div class="reasoning-section">
+                        <div class="reasoning-title">${f.title}</div>
+                        <div class="reasoning-text">${text}</div>
+                    </div>`;
+                });
+            }
+
+            container.innerHTML = html;
+        }
+
+        function closeModal() {
             const modal = document.getElementById('stockModal');
-            if (event.target === modal) modal.style.display = 'none';
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        // ── Helpers ───────────────────────────────────────────────────────────────
+        function getStockName(code) {
+            return stockNames[code] || code;
+        }
+
+        function formatSignalType(type) {
+            const map = {
+                'trend_start': '趋势启动',
+                'breakout': '突破',
+                'pullback': '回踩',
+                'distribution_risk': '出货风险',
+                'high_risk': '高位风险',
+            };
+            return map[type] || type || '--';
+        }
+
+        // ── Modal close handlers ──────────────────────────────────────────────────
+        window.addEventListener('click', function(e) {
+            if (e.target === document.getElementById('stockModal')) closeModal();
         });
 
-        document.querySelector('.close').addEventListener('click', function() {
-            document.getElementById('stockModal').style.display = 'none';
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeModal();
         });
     </script>
 </body>
